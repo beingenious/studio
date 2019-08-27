@@ -1,0 +1,29 @@
+{
+  "extends": "airbnb",
+  "parser": "babel-eslint",
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "rules": {
+    "arrow-body-style": [
+      "error",
+      "as-needed"
+    ],
+    "no-nested-ternary": [
+      0
+    ],
+    "max-len": [
+      "error",
+      {
+        "code": 100,
+        "ignoreComments": true,
+        "ignoreStrings": true,
+        "ignoreTemplateLiterals": true
+      }
+    ]
+  },
+  "settings": {
+    "import/core-modules": [ "electron" ]
+  }
+}
