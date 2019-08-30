@@ -42,6 +42,13 @@ const createMainWindow = async () => {
     },
   });
 
+  win.on('page-title-updated', (event, title) => {
+    if (title === '') {
+      event.preventDefault();
+      win.setTitle(app.getName());
+    }
+  });
+
   win.on('ready-to-show', () => {
     win.show();
   });
