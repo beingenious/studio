@@ -1,7 +1,7 @@
 {
 	"name": "pandasuite-studio",
 	"productName": "PandaSuite Studio",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "The best studio ever",
 	"license": "MIT",
 	"repository": "beingenious/studio",
