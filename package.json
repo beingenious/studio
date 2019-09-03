@@ -26,9 +26,11 @@
 		"electron-store": "^3.3.0",
 		"electron-unhandled": "^2.2.0",
 		"electron-updater": "^4.0.6",
-		"electron-util": "^0.12.0"
+		"electron-util": "^0.12.0",
+		"lodash": "^4.17.15"
 	},
 	"devDependencies": {
+		"@types/lodash": "^4.14.138",
 		"babel-eslint": "^10.0.3",
 		"electron": "^6.0.5",
 		"electron-builder": "^21.2.0",
@@ -47,6 +49,12 @@
 	},
 	"build": {
 		"appId": "com.pandasuite.studio",
+		"protocols": {
+			"name": "panda-deep-linking",
+			"schemes": [
+				"pandastudio"
+			]
+		},
 		"mac": {
 			"hardenedRuntime": true,
 			"gatekeeperAssess": false,
