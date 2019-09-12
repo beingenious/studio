@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, Menu, dialog, shell, session,
+  app, BrowserWindow, Menu, dialog, shell, session, globalShortcut,
 } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { is } = require('electron-util');
@@ -223,19 +223,26 @@ app.on('open-url', async (event, url) => {
       },
     }),
   );
-  // Only for MacOS
-  app.dock.setMenu(
-    Menu.buildFromTemplate([
-      {
-        label: __('New Window'),
-        click: async function newWindow() {
-          const win = await createPublicationWindow(deeplinkingUrl);
-          publicationsWindow[win.webContents.getURL()] = win;
+
+  if (is.macos) {
+    app.dock.setMenu(
+      Menu.buildFromTemplate([
+        {
+          label: __('New Window'),
+          click: async function newWindow() {
+            const win = await createPublicationWindow(deeplinkingUrl);
+            publicationsWindow[win.webContents.getURL()] = win;
+          },
         },
-      },
-    ]),
-  );
+      ]),
+    );
+  }
 
   const win = await createPublicationWindow(deeplinkingUrl);
   publicationsWindow[win.webContents.getURL()] = win;
+
+  const shortcut = process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I';
+  globalShortcut.register(shortcut, () => {
+    win.openDevTools({ mode: 'undocked' });
+  });
 })();
