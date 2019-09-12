@@ -92,10 +92,7 @@
 			]
 		},
 		"win": {
-			"publisherName": [
-				"PandaSuite",
-				"Panda Suite SRL"
-			],
+			"verifyUpdateCodeSignature": false,
 			"extraResources": [
 				"./static/flash_player_ppapi/*.dll"
 			]
