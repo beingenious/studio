@@ -1,11 +1,13 @@
 const {
   app, BrowserWindow, Menu, dialog, shell, session, globalShortcut,
 } = require('electron');
+const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
+const serve = require('electron-serve');
 
 const values = require('lodash/values');
 const pickBy = require('lodash/pickBy');
@@ -19,6 +21,8 @@ unhandled();
 debug();
 contextMenu();
 setupFlashPlayer();
+
+const PDFJS_SCHEME = 'pdf';
 
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
@@ -69,6 +73,7 @@ const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/l
     webPreferences: {
       webviewTag: true,
       plugins: true,
+      webSecurity: false, // For PDF scheme, because of a CORS error :-(
     },
   });
 
@@ -125,8 +130,34 @@ const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/l
   win.webContents.on('will-navigate', handleRedirect);
   win.webContents.on('new-window', handleRedirect);
 
-  await win.loadURL(url);
 
+  // Support PDF via
+  // https://github.com/sindresorhus/electron-serve
+
+  const REQUEST_FILTER = {
+    urls: ['*://*/*.pdf*'],
+  };
+
+  win.webContents.session.webRequest.onBeforeRequest(
+    REQUEST_FILTER,
+    (details, callback) => {
+      if (/\.pdf(\?([^/]+)?)?$/i.test(details.url)
+        && !(details.referrer === '' && details.resourceType === 'xhr')) {
+        const matches = details.url.match(
+          RegExp(/([^:]+:\/\/)([^/]+)(\/[^/]+\/[^?]+)/),
+        );
+        if (matches) {
+          return callback({
+            redirectURL:
+              `${PDFJS_SCHEME}://-/web/viewer.html?toolbar=0&statusbar=0&navpanes=0&messages=0&file=${matches[1]}${matches[2]}${matches[3]}`,
+          });
+        }
+      }
+      return callback({ cancel: false });
+    },
+  );
+
+  await win.loadURL(url).catch(() => { });
   return win;
 };
 
@@ -188,6 +219,14 @@ app.on('open-url', async (event, url) => {
       publicationsWindow[deeplinkingUrl] = win;
     }
   }
+});
+
+serve({
+  directory: path.join(
+    __dirname.includes('.asar') ? process.resourcesPath : __dirname,
+    'static', 'pdfjs',
+  ),
+  scheme: PDFJS_SCHEME,
 });
 
 (async () => {
