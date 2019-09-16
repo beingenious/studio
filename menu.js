@@ -35,7 +35,7 @@ module.exports = function initMenu(options) {
         type: 'separator',
       },
       aboutMenuItem({
-        icon: path.join(__dirname, 'static', 'icon.png'),
+        icon: path.join(__dirname.includes('.asar') ? process.resourcesPath : __dirname, 'static', 'icon.png'),
         text: 'Created by the PandaSuite Team',
       }),
     );
