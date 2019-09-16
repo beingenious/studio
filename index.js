@@ -7,6 +7,7 @@ const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
+const { download } = require('electron-dl');
 const serve = require('electron-serve');
 
 const values = require('lodash/values');
@@ -30,10 +31,10 @@ app.setAppUserModelId('com.pandasuite.studio');
 if (!is.development) {
   const FOUR_HOURS = 1000 * 60 * 60 * 4;
   setInterval(() => {
-    autoUpdater.checkForUpdates();
+    autoUpdater.checkForUpdates().catch(() => { });
   }, FOUR_HOURS);
 
-  autoUpdater.checkForUpdates();
+  autoUpdater.checkForUpdates().catch(() => {});
 }
 
 let publicationsWindow = {};
@@ -121,10 +122,17 @@ const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/l
   });
 
   const handleRedirect = (e, newUrl) => {
-    if (newUrl.indexOf('/authoring/') === -1) {
-      e.preventDefault();
-      shell.openExternal(newUrl);
+    if (newUrl.indexOf('/authoring/') !== -1) {
+      return;
     }
+    if (newUrl.indexOf('get_aws_url_for') !== -1) {
+      e.preventDefault();
+      download(win, newUrl);
+      return;
+    }
+
+    e.preventDefault();
+    shell.openExternal(newUrl);
   };
 
   win.webContents.on('will-navigate', handleRedirect);
