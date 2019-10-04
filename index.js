@@ -184,7 +184,7 @@ app.on('second-instance', async (event, argv) => {
       if (existingWin) {
         win = existingWin;
       } else {
-        win = await createPublicationWindow();
+        win = await createPublicationWindow(deeplinkingUrl);
         publicationsWindow[deeplinkingUrl] = win;
         return;
       }
