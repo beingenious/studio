@@ -102,6 +102,7 @@
 				"./static/pdfjs/**/*"
 			]
 		},
-		"afterSign": "scripts/notarize.js"
+		"afterSign": "scripts/notarize.js",
+		"afterPack": "scripts/no-sandbox.js"
 	}
 }
