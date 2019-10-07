@@ -178,7 +178,7 @@ app.on('second-instance', async (event, argv) => {
   let win = focusedWindow || values(publicationsWindow)[0];
 
   if (process.platform === 'win32') {
-    deeplinkingUrl = schemeToUrl(argv[1]);
+    deeplinkingUrl = schemeToUrl(argv[argv.length - 1]);
     if (deeplinkingUrl) {
       const existingWin = getPublicationWindowByUrl(deeplinkingUrl);
       if (existingWin) {
