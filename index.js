@@ -243,7 +243,7 @@ serve({
   // https://github.com/electron/electron/issues/9995
   const { cookies } = session.defaultSession;
   cookies.on('changed', (event, cookie, cause, removed) => {
-    if (cookie.session && !removed) {
+    if (cookie.domain.indexOf('pandasuite.com') !== -1 && cookie.session && !removed) {
       const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path}`;
       cookies.set({
         url,
@@ -254,7 +254,7 @@ serve({
         secure: cookie.secure,
         httpOnly: cookie.httpOnly,
         expirationDate: Math.floor(new Date().getTime() / 1000) + 1209600,
-      });
+      }).catch(() => { });
     }
   });
 
