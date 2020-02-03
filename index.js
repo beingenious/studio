@@ -73,8 +73,8 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
     show: false,
     width: 1280,
     height: 800,
-    // frame: false,
-    // titleBarStyle: 'hiddenInset',
+    frame: false,
+    titleBarStyle: 'hiddenInset',
     webPreferences: {
       webviewTag: true,
       plugins: true,
