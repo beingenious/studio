@@ -23,6 +23,8 @@ debug();
 contextMenu();
 setupFlashPlayer();
 
+const PANDASUITE_HOST = is.development ? 'dev.pandasuite.com' : 'pandasuite.com';
+const PANDASUITE_AUTHORING_PATH = is.development ? 'dashboard/authoring' : 'authoring';
 const PDFJS_SCHEME = 'pdf';
 
 // Note: Must match `build.appId` in package.json
@@ -65,16 +67,19 @@ function getPublicationWindowByUrl(url) {
   return values(pickBy(publicationsWindow, (v, k) => (k === url)))[0];
 }
 
-const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/latest/') => {
+const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDASUITE_AUTHORING_PATH}/latest`) => {
   const win = new BrowserWindow({
     title: app.getName(),
     show: false,
     width: 1280,
     height: 800,
+    // frame: false,
+    // titleBarStyle: 'hiddenInset',
     webPreferences: {
       webviewTag: true,
       plugins: true,
       webSecurity: false, // For PDF scheme, because of a CORS error :-(
+      backgroundThrottling: false,
     },
   });
 
@@ -121,13 +126,15 @@ const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/l
     }
   });
 
-  const handleRedirect = (e, newUrl) => {
-    if (newUrl.indexOf('/authoring/') !== -1) {
+  const handleRedirect = async (e, newUrl) => {
+    if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1) {
       return;
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      download(win, newUrl);
+      const downloadItem = await download(win, newUrl);
+      const filename = downloadItem.getSavePath();
+      shell.showItemInFolder(filename);
       return;
     }
 
@@ -138,6 +145,13 @@ const createPublicationWindow = async (url = 'https://pandasuite.com/authoring/l
   win.webContents.on('will-navigate', handleRedirect);
   win.webContents.on('new-window', handleRedirect);
 
+  win.webContents.on('did-navigate-in-page', async (event, newUrl) => {
+    if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/loggedout`) !== -1) {
+      shell.moveItemToTrash(app.getPath('userData'));
+      app.relaunch();
+      app.quit();
+    }
+  });
 
   // Support PDF via
   // https://github.com/sindresorhus/electron-serve
@@ -219,12 +233,21 @@ app.on('open-url', async (event, url) => {
   deeplinkingUrl = schemeToUrl(url);
 
   if (deeplinkingUrl) {
-    const existingWin = getPublicationWindowByUrl(deeplinkingUrl);
-    if (existingWin) {
-      resumePublicationWindow(existingWin);
-    } else if (app.isReady()) {
-      const win = await createPublicationWindow(deeplinkingUrl);
-      publicationsWindow[deeplinkingUrl] = win;
+    const firstWindow = publicationsWindow && values(publicationsWindow)[0];
+    if (deeplinkingUrl.startsWith('__') && firstWindow) {
+      const deeplinkingParts = deeplinkingUrl.split('/');
+      const cmd = `window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`;
+      firstWindow.webContents.executeJavaScript(cmd, true);
+      resumePublicationWindow(firstWindow);
+    } else if (deeplinkingUrl.indexOf(PANDASUITE_HOST) !== -1) {
+      const existingWin = getPublicationWindowByUrl(deeplinkingUrl);
+
+      if (existingWin) {
+        resumePublicationWindow(existingWin);
+      } else if (app.isReady()) {
+        const win = await createPublicationWindow(deeplinkingUrl);
+        publicationsWindow[deeplinkingUrl] = win;
+      }
     }
   }
 });
@@ -243,7 +266,7 @@ serve({
   // https://github.com/electron/electron/issues/9995
   const { cookies } = session.defaultSession;
   cookies.on('changed', (event, cookie, cause, removed) => {
-    if (cookie.domain.indexOf('pandasuite.com') !== -1 && cookie.session && !removed) {
+    if (cookie.domain.indexOf(PANDASUITE_HOST) !== -1 && cookie.session && !removed) {
       const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path}`;
       cookies.set({
         url,
