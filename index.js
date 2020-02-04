@@ -42,6 +42,7 @@ if (!is.development) {
 let publicationsWindow = {};
 let focusedWindow = null;
 let deeplinkingUrl;
+let relaunchInProgress = false;
 
 function schemeToUrl(url) {
   return (
@@ -112,6 +113,15 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
 
   // https://www.chromestatus.com/feature/5082396709879808
   win.webContents.on('will-prevent-unload', async (event) => {
+    const destroyWindow = () => {
+      event.preventDefault();
+      win.destroy();
+    };
+
+    if (relaunchInProgress) {
+      destroyWindow();
+      return;
+    }
     const result = await dialog.showMessageBox(win, {
       type: 'question',
       buttons: [__('Leave'), __('Cancel')],
@@ -121,8 +131,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       cancelId: 1,
     });
     if (result.response === 0) {
-      event.preventDefault();
-      win.destroy();
+      destroyWindow();
     }
   });
 
@@ -147,6 +156,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
 
   win.webContents.on('did-navigate-in-page', async (event, newUrl) => {
     if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/loggedout`) !== -1) {
+      relaunchInProgress = true;
       shell.moveItemToTrash(app.getPath('userData'));
       app.relaunch();
       app.quit();
@@ -288,7 +298,7 @@ serve({
   Menu.setApplicationMenu(
     menu({
       newWindow: async function newWindow() {
-        const win = await createPublicationWindow(deeplinkingUrl);
+        const win = await createPublicationWindow();
         publicationsWindow[win.webContents.getURL()] = win;
       },
     }),
@@ -300,7 +310,7 @@ serve({
         {
           label: __('New Window'),
           click: async function newWindow() {
-            const win = await createPublicationWindow(deeplinkingUrl);
+            const win = await createPublicationWindow();
             publicationsWindow[win.webContents.getURL()] = win;
           },
         },
