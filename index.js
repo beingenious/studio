@@ -25,6 +25,7 @@ setupFlashPlayer();
 
 const PANDASUITE_HOST = is.development ? 'dev.pandasuite.com' : 'pandasuite.com';
 const PANDASUITE_AUTHORING_PATH = is.development ? 'dashboard/authoring' : 'authoring';
+const PANDASTUDIO_SCHEME = 'pandastudio';
 const PDFJS_SCHEME = 'pdf';
 
 // Note: Must match `build.appId` in package.json
@@ -136,7 +137,8 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
   });
 
   const handleRedirect = async (e, newUrl) => {
-    if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1) {
+    if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1
+      && !newUrl.startsWith(PANDASTUDIO_SCHEME)) {
       return;
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
@@ -235,7 +237,7 @@ app.on('activate', async (event, hasVisibleWindows) => {
   }
 });
 
-app.setAsDefaultProtocolClient('pandastudio');
+app.setAsDefaultProtocolClient(PANDASTUDIO_SCHEME);
 
 // Protocol handler for osx
 app.on('open-url', async (event, url) => {
