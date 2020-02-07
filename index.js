@@ -200,25 +200,31 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 }
 
-app.on('second-instance', async (event, argv) => {
-  let win = focusedWindow || values(publicationsWindow)[0];
+const openDeepLinkingUrl = async (url) => {
+  if (url) {
+    const firstWindow = publicationsWindow && values(publicationsWindow)[0];
+    if (url.startsWith('__') && firstWindow) {
+      const deeplinkingParts = url.split('/');
+      const cmd = `window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`;
+      firstWindow.webContents.executeJavaScript(cmd, true);
+      resumePublicationWindow(firstWindow);
+    } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
+      const existingWin = getPublicationWindowByUrl(url);
 
-  if (process.platform === 'win32') {
-    deeplinkingUrl = schemeToUrl(argv[argv.length - 1]);
-    if (deeplinkingUrl) {
-      const existingWin = getPublicationWindowByUrl(deeplinkingUrl);
       if (existingWin) {
-        win = existingWin;
-      } else {
-        win = await createPublicationWindow(deeplinkingUrl);
-        publicationsWindow[deeplinkingUrl] = win;
-        return;
+        resumePublicationWindow(existingWin);
+      } else if (app.isReady()) {
+        const win = await createPublicationWindow(url);
+        publicationsWindow[url] = win;
       }
     }
   }
+};
 
-  if (win) {
-    resumePublicationWindow(win);
+app.on('second-instance', async (event, argv) => {
+  if (process.platform === 'win32') {
+    deeplinkingUrl = schemeToUrl(argv[argv.length - 1]);
+    openDeepLinkingUrl(deeplinkingUrl);
   }
 });
 
@@ -243,25 +249,7 @@ app.setAsDefaultProtocolClient(PANDASTUDIO_SCHEME);
 app.on('open-url', async (event, url) => {
   event.preventDefault();
   deeplinkingUrl = schemeToUrl(url);
-
-  if (deeplinkingUrl) {
-    const firstWindow = publicationsWindow && values(publicationsWindow)[0];
-    if (deeplinkingUrl.startsWith('__') && firstWindow) {
-      const deeplinkingParts = deeplinkingUrl.split('/');
-      const cmd = `window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`;
-      firstWindow.webContents.executeJavaScript(cmd, true);
-      resumePublicationWindow(firstWindow);
-    } else if (deeplinkingUrl.indexOf(PANDASUITE_HOST) !== -1) {
-      const existingWin = getPublicationWindowByUrl(deeplinkingUrl);
-
-      if (existingWin) {
-        resumePublicationWindow(existingWin);
-      } else if (app.isReady()) {
-        const win = await createPublicationWindow(deeplinkingUrl);
-        publicationsWindow[deeplinkingUrl] = win;
-      }
-    }
-  }
+  openDeepLinkingUrl(deeplinkingUrl);
 });
 
 serve({
