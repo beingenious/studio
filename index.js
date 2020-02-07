@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, Menu, dialog, shell, session,
+  app, BrowserWindow, Menu, dialog, shell, session, globalShortcut,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -322,4 +322,9 @@ serve({
 
   const win = await createPublicationWindow(deeplinkingUrl);
   publicationsWindow[win.webContents.getURL()] = win;
+
+  const shortcut = process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I';
+  globalShortcut.register(shortcut, () => {
+    win.openDevTools({ mode: 'undocked' });
+  });
 })();
