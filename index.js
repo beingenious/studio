@@ -222,7 +222,7 @@ const openDeepLinkingUrl = async (url) => {
 };
 
 app.on('second-instance', async (event, argv) => {
-  if (process.platform === 'win32') {
+  if (process.platform !== 'darwin') {
     deeplinkingUrl = schemeToUrl(argv[argv.length - 1]);
     openDeepLinkingUrl(deeplinkingUrl);
   }
@@ -281,7 +281,7 @@ serve({
     }
   });
 
-  if (process.platform === 'win32') {
+  if (process.platform !== 'darwin') {
     deeplinkingUrl = schemeToUrl(process.argv[1]);
   }
 

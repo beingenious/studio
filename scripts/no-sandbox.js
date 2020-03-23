@@ -14,19 +14,30 @@ exports.default = async function noSandboxing(context) {
     return;
   }
 
-  const pathPandaSuiteStudio = 'dist/linux-unpacked/pandasuite-studio';
-  const pathPandaSuiteStudioBin = 'dist/linux-unpacked/pandasuite-studio.bin';
+  [
+    {
+      studio: 'dist/linux-unpacked/pandasuite-studio',
+      studioBin: 'dist/linux-unpacked/pandasuite-studio.bin',
+    },
+    {
+      studio: 'dist/linux-ia32-unpacked/pandasuite-studio',
+      studioBin: 'dist/linux-ia32-unpacked/pandasuite-studio.bin',
+    },
+  ].forEach((row) => {
+    const pathPandaSuiteStudio = row.studio;
+    const pathPandaSuiteStudioBin = row.studioBin;
 
-  requirePath(pathPandaSuiteStudio);
+    requirePath(pathPandaSuiteStudio);
 
-  fs.renameSync(pathPandaSuiteStudio, pathPandaSuiteStudioBin);
+    fs.renameSync(pathPandaSuiteStudio, pathPandaSuiteStudioBin);
 
-  const wrapperScript = `#!/bin/bash
-    SOURCE_FILE=$(readlink -f "\${BASH_SOURCE}")
-    SOURCE_DIR=\${SOURCE_FILE%/*}
-    "\${SOURCE_DIR}/pandasuite-studio.bin" "$@" --no-sandbox
-  `;
+    const wrapperScript = `#!/bin/bash
+      SOURCE_FILE=$(readlink -f "\${BASH_SOURCE}")
+      SOURCE_DIR=\${SOURCE_FILE%/*}
+      "\${SOURCE_DIR}/pandasuite-studio.bin" "$@" --no-sandbox
+    `;
 
-  fs.writeFileSync(pathPandaSuiteStudio, wrapperScript);
-  exec(`chmod +x ${pathPandaSuiteStudio}`);
+    fs.writeFileSync(pathPandaSuiteStudio, wrapperScript);
+    exec(`chmod +x ${pathPandaSuiteStudio}`);
+  });
 };
