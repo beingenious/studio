@@ -27,17 +27,19 @@ exports.default = async function noSandboxing(context) {
     const pathPandaSuiteStudio = row.studio;
     const pathPandaSuiteStudioBin = row.studioBin;
 
-    requirePath(pathPandaSuiteStudio);
+    if (fs.existsSync(pathPandaSuiteStudio) && !fs.existsSync(pathPandaSuiteStudioBin)) {
+      requirePath(pathPandaSuiteStudio);
 
-    fs.renameSync(pathPandaSuiteStudio, pathPandaSuiteStudioBin);
+      fs.renameSync(pathPandaSuiteStudio, pathPandaSuiteStudioBin);
 
-    const wrapperScript = `#!/bin/bash
-      SOURCE_FILE=$(readlink -f "\${BASH_SOURCE}")
-      SOURCE_DIR=\${SOURCE_FILE%/*}
-      "\${SOURCE_DIR}/pandasuite-studio.bin" "$@" --no-sandbox
-    `;
+      const wrapperScript = `#!/bin/bash
+        SOURCE_FILE=$(readlink -f "\${BASH_SOURCE}")
+        SOURCE_DIR=\${SOURCE_FILE%/*}
+        "\${SOURCE_DIR}/pandasuite-studio.bin" "$@" --no-sandbox
+      `;
 
-    fs.writeFileSync(pathPandaSuiteStudio, wrapperScript);
-    exec(`chmod +x ${pathPandaSuiteStudio}`);
+      fs.writeFileSync(pathPandaSuiteStudio, wrapperScript);
+      exec(`chmod +x ${pathPandaSuiteStudio}`);
+    }
   });
 };
