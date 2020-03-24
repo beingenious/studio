@@ -1,4 +1,5 @@
 const { app } = require('electron');
+const { is } = require('electron-util');
 const path = require('path');
 
 module.exports.setupFlashPlayer = function setupFlashPlayer() {
@@ -21,6 +22,9 @@ module.exports.setupFlashPlayer = function setupFlashPlayer() {
   }
 
   if (pluginName != null) {
+    if (is.linux) {
+      app.commandLine.appendSwitch('no-sandbox');
+    }
     app.commandLine.appendSwitch('ppapi-flash-path',
       path.join(__dirname.includes('.asar') ? process.resourcesPath : __dirname, 'static', 'flash_player_ppapi', pluginName));
   }
