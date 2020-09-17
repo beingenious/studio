@@ -105,6 +105,9 @@ module.exports = function initMenu(options) {
       ],
     },
     {
+      role: 'editMenu',
+    },
+    {
       label: 'View',
       submenu: [
         { role: 'togglefullscreen' },
@@ -150,6 +153,9 @@ module.exports = function initMenu(options) {
           role: 'quit',
         },
       ],
+    },
+    {
+      role: 'editMenu',
     },
     {
       label: 'View',
