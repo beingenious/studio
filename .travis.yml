@@ -9,3 +9,7 @@ branches:
   only:
   - master
 cache: false
+addons:
+  homebrew:
+    packages:
+    - xz
