@@ -10,6 +10,8 @@ const contextMenu = require('electron-context-menu');
 const { download } = require('electron-dl');
 const serve = require('electron-serve');
 
+const Bugsnag = require('@bugsnag/js');
+
 const values = require('lodash/values');
 const pickBy = require('lodash/pickBy');
 const omitBy = require('lodash/omitBy');
@@ -18,7 +20,17 @@ const menu = require('./menu');
 const { setupFlashPlayer } = require('./flash-player.js');
 const { __ } = require('./i18n/i18n');
 
-unhandled();
+if (process.env.BUGSNAG_API_KEY) {
+  Bugsnag.start({ apiKey: process.env.BUGSNAG_API_KEY });
+  unhandled({
+    reportButton: (error) => {
+      Bugsnag.notify(error);
+    },
+  });
+} else {
+  unhandled();
+}
+
 debug();
 contextMenu();
 setupFlashPlayer();
