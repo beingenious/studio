@@ -20,17 +20,13 @@ const menu = require('./menu');
 const { setupFlashPlayer } = require('./flash-player.js');
 const { __ } = require('./i18n/i18n');
 
-if (process.env.BUGSNAG_API_KEY) {
-  Bugsnag.start({ apiKey: process.env.BUGSNAG_API_KEY });
-  unhandled({
-    reportButton: (error) => {
-      Bugsnag.notify(error);
-    },
-  });
-} else {
-  unhandled();
-}
+Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
 
+unhandled({
+  reportButton: (error) => {
+    Bugsnag.notify(error);
+  },
+});
 debug();
 contextMenu();
 setupFlashPlayer();
