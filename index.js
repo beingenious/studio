@@ -51,7 +51,6 @@ if (!is.development) {
 let publicationsWindow = {};
 let focusedWindow = null;
 let deeplinkingUrl;
-let relaunchInProgress = false;
 
 function schemeToUrl(url) {
   return (
@@ -126,10 +125,6 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       win.destroy();
     };
 
-    if (relaunchInProgress) {
-      destroyWindow();
-      return;
-    }
     const result = await dialog.showMessageBox(win, {
       type: 'question',
       buttons: [__('Leave'), __('Cancel')],
@@ -165,10 +160,9 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
 
   win.webContents.on('did-navigate-in-page', async (event, newUrl) => {
     if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/loggedout`) !== -1) {
-      relaunchInProgress = true;
       shell.moveItemToTrash(app.getPath('userData'));
       app.relaunch();
-      app.quit();
+      app.exit(0);
     }
   });
 
