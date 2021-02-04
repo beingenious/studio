@@ -3,22 +3,34 @@ const path = require('path');
 const { app } = require('electron');
 
 module.exports = (function i18n() {
-  const locale = app.getLocale();
-  let loadedLanguage;
+  let currentLocale = 'en-US';
 
-  if (fs.existsSync(path.join(__dirname, `${locale}.json`))) {
-    loadedLanguage = JSON.parse(fs.readFileSync(path.join(__dirname, `${locale}.json`), 'utf8'));
-  } else {
-    loadedLanguage = JSON.parse(fs.readFileSync(path.join(__dirname, 'en.json'), 'utf8'));
-  }
+  const loadedLanguage = {
+    'en-US': JSON.parse(fs.readFileSync(path.join(__dirname, 'en.json'), 'utf8')),
+    'fr-FR': JSON.parse(fs.readFileSync(path.join(__dirname, 'fr.json'), 'utf8')),
+  };
 
   // eslint-disable-next-line no-underscore-dangle
   this.__ = function translate(phrase) {
-    let translation = loadedLanguage[phrase];
-    if (translation === undefined) {
-      translation = phrase;
-    }
-    return translation;
+    return loadedLanguage[currentLocale][phrase];
   };
+
+  this.changeLocale = (locale) => {
+    let newLocale;
+
+    if (locale.startsWith('fr')) {
+      newLocale = 'fr-FR';
+    } else {
+      newLocale = 'en-US';
+    }
+    if (newLocale !== currentLocale) {
+      currentLocale = newLocale;
+      return true;
+    }
+    return false;
+  };
+
+  this.changeLocale(app.getLocale());
+
   return this;
 }());

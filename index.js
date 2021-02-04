@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, Menu, dialog, shell, session, globalShortcut,
+  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -18,7 +18,7 @@ const omitBy = require('lodash/omitBy');
 
 const menu = require('./menu');
 const { setupFlashPlayer } = require('./flash-player.js');
-const { __ } = require('./i18n/i18n');
+const { __, changeLocale } = require('./i18n/i18n');
 
 Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
 
@@ -76,6 +76,14 @@ function getPublicationWindowByUrl(url) {
   return values(pickBy(publicationsWindow, (v, k) => (k === url)))[0];
 }
 
+const studioOnMenuItemUpdate = (item) => {
+  const currentWindow = BrowserWindow.getFocusedWindow();
+
+  if (currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
+  }
+};
+
 const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDASUITE_AUTHORING_PATH}/latest`) => {
   const win = new BrowserWindow({
     title: app.getName(),
@@ -83,6 +91,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
     frame: !is.macos,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
+      preload: path.join(__dirname, './preload.js'),
       webviewTag: true,
       plugins: true,
       webSecurity: false, // For PDF scheme, because of a CORS error :-(
@@ -90,6 +99,49 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
     },
   });
   win.maximize();
+
+  ipcMain.on('updateMenuItem', (event, data) => {
+    if (data && data.id) {
+      const applicationMenu = Menu.getApplicationMenu();
+
+      if (applicationMenu) {
+        const menuItem = applicationMenu.getMenuItemById(data.id);
+
+        if (menuItem) {
+          if (data.enabled !== undefined) {
+            menuItem.enabled = data.enabled;
+          }
+        }
+        if (data.click) {
+          if (data.id === 'zoom') {
+            if (win.isMaximized()) {
+              win.unmaximize();
+            } else {
+              win.maximize();
+            }
+          } else if (data.id === 'new_window') {
+            (async () => {
+              const newWin = await createPublicationWindow();
+              publicationsWindow[newWin.webContents.getURL()] = newWin;
+            })();
+          } else if (data.id === 'close') {
+            win.close();
+          } else {
+            studioOnMenuItemUpdate(data);
+          }
+        }
+      }
+    }
+  });
+
+  ipcMain.on('updateLanguage', (event, data) => {
+    if (data && data.language) {
+      if (changeLocale(data.language)) {
+        // eslint-disable-next-line no-use-before-define
+        createMenu();
+      }
+    }
+  });
 
   win.on('page-title-updated', (event, title) => {
     if (title === '') {
@@ -261,6 +313,32 @@ serve({
   scheme: PDFJS_SCHEME,
 });
 
+const createMenu = () => {
+  Menu.setApplicationMenu(
+    menu({
+      newWindow: async function newWindow() {
+        const win = await createPublicationWindow();
+        publicationsWindow[win.webContents.getURL()] = win;
+      },
+      studioOnMenuItemUpdate,
+    }),
+  );
+
+  if (is.macos) {
+    app.dock.setMenu(
+      Menu.buildFromTemplate([
+        {
+          label: __('menu.new_window'),
+          click: async function newWindow() {
+            const win = await createPublicationWindow();
+            publicationsWindow[win.webContents.getURL()] = win;
+          },
+        },
+      ]),
+    );
+  }
+};
+
 (async () => {
   await app.whenReady();
 
@@ -286,28 +364,7 @@ serve({
     deeplinkingUrl = schemeToUrl(process.argv[1]);
   }
 
-  Menu.setApplicationMenu(
-    menu({
-      newWindow: async function newWindow() {
-        const win = await createPublicationWindow();
-        publicationsWindow[win.webContents.getURL()] = win;
-      },
-    }),
-  );
-
-  if (is.macos) {
-    app.dock.setMenu(
-      Menu.buildFromTemplate([
-        {
-          label: __('New Window'),
-          click: async function newWindow() {
-            const win = await createPublicationWindow();
-            publicationsWindow[win.webContents.getURL()] = win;
-          },
-        },
-      ]),
-    );
-  }
+  createMenu();
 
   const win = await createPublicationWindow(deeplinkingUrl);
   publicationsWindow[win.webContents.getURL()] = win;

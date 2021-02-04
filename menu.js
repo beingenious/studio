@@ -9,9 +9,7 @@ const config = require('./config');
 const { __ } = require('./i18n/i18n');
 
 module.exports = function initMenu(options) {
-  const showPreferences = () => {
-    // Show the app's preferences here
-  };
+  const isMac = process.platform === 'darwin';
 
   const helpSubmenu = [
     openUrlMenuItem({
@@ -74,27 +72,56 @@ module.exports = function initMenu(options) {
     },
   ];
 
-  const macosTemplate = [
-    appMenu([
-      {
-        label: 'Preferences…',
-        accelerator: 'Command+,',
-        click() {
-          showPreferences();
-        },
-      },
-    ]),
+  const performClick = (menuItem) => {
+    if (options && options.studioOnMenuItemUpdate) {
+      options.studioOnMenuItemUpdate({ id: menuItem.id, click: true });
+    }
+  };
+
+  const template = [
     {
       role: 'fileMenu',
+      label: __('menu.project'),
+      id: 'project',
       submenu: [
         {
-          label: __('New Window'),
-          accelerator: 'Command+Shift+N',
+          label: __('menu.new'),
+          id: 'new',
+          accelerator: 'CommandOrControl+N',
+          click: performClick,
+        },
+        {
+          label: __('menu.new_window'),
+          id: 'new_window',
+          accelerator: 'CommandOrControl+Shift+N',
           click() {
             if (options && options.newWindow) {
               options.newWindow();
             }
           },
+        },
+        {
+          type: 'separator',
+        },
+        {
+          label: __('menu.open'),
+          id: 'open',
+          accelerator: 'CommandOrControl+O',
+          click: performClick,
+        },
+        {
+          type: 'separator',
+        },
+        {
+          label: __('menu.duplicate'),
+          id: 'duplicate',
+          click: performClick,
+        },
+        {
+          label: __('menu.save'),
+          id: 'save',
+          accelerator: 'CommandOrControl+S',
+          click: performClick,
         },
         {
           type: 'separator',
@@ -105,71 +132,102 @@ module.exports = function initMenu(options) {
       ],
     },
     {
-      role: 'editMenu',
+      label: __('menu.edit'),
+      id: 'edit',
+      submenu: [
+        {
+          label: __('menu.undo'),
+          id: 'undo',
+          accelerator: 'CommandOrControl+Z',
+          click: performClick,
+        },
+        {
+          label: __('menu.redo'),
+          id: 'redo',
+          accelerator: isMac ? 'Shift+CommandOrControl+Z' : 'CommandOrControl+Y',
+          click: performClick,
+        },
+        { type: 'separator' },
+        {
+          label: __('menu.delete'),
+          id: 'delete',
+          accelerator: 'Backspace',
+          click: performClick,
+        },
+        {
+          label: __('menu.select_all'),
+          id: 'select_all',
+          accelerator: 'CommandOrControl+A',
+          click: performClick,
+        },
+        { type: 'separator' },
+      ],
     },
     {
-      label: 'View',
+      label: __('menu.view'),
+      id: 'view',
       submenu: [
-        { role: 'togglefullscreen' },
+        {
+          role: 'togglefullscreen',
+          label: __('menu.togglefullscreen'),
+          id: 'togglefullscreen',
+        },
       ],
     },
     {
       role: 'windowMenu',
     },
     {
-      role: 'help',
-      submenu: helpSubmenu,
-    },
-  ];
-
-  // Linux and Windows
-  const otherTemplate = [
-    {
-      role: 'fileMenu',
+      label: __('menu.help'),
+      id: 'help',
       submenu: [
         {
-          label: __('New Window'),
-          accelerator: 'Control+Shift+N',
-          click() {
-            if (options && options.newWindow) {
-              options.newWindow();
-            }
-          },
+          label: __('menu.support'),
+          id: 'support',
+          click: performClick,
+        },
+        { type: 'separator' },
+        {
+          label: __('menu.helpcenter'),
+          id: 'helpcenter',
+          click: performClick,
         },
         {
-          type: 'separator',
+          label: __('menu.examples'),
+          id: 'examples',
+          click: performClick,
         },
         {
-          label: 'Settings',
-          accelerator: 'Control+,',
-          click() {
-            showPreferences();
-          },
+          label: __('menu.learn'),
+          id: 'learn',
+          click: performClick,
+        },
+        { type: 'separator' },
+        {
+          label: __('menu.contactus'),
+          id: 'contactus',
+          click: performClick,
         },
         {
-          type: 'separator',
+          label: __('menu.hire'),
+          id: 'hire',
+          click: performClick,
         },
         {
-          role: 'quit',
+          label: __('menu.bug'),
+          id: 'bug',
+          click: performClick,
         },
       ],
     },
-    {
-      role: 'editMenu',
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'togglefullscreen' },
-      ],
-    },
-    {
-      role: 'help',
-      submenu: helpSubmenu,
-    },
   ];
 
-  const template = process.platform === 'darwin' ? macosTemplate : otherTemplate;
+  if (isMac) {
+    template.unshift(appMenu([]));
+  } else {
+    /* Remove Window */
+    template.splice(template.length - 2, 1);
+  }
 
   if (is.development) {
     template.push({
