@@ -16,6 +16,7 @@
 		"test": "npm run lint",
 		"start": "electron .",
 		"pack": "electron-builder --dir",
+		"dist-windows": "electron-builder --windows --x64 --ia32",
 		"dist": "electron-builder --macos --linux --windows --x64 --ia32",
 		"release": "np"
 	},
