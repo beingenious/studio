@@ -17,7 +17,7 @@ const pickBy = require('lodash/pickBy');
 const omitBy = require('lodash/omitBy');
 
 const menu = require('./menu');
-const { setupFlashPlayer } = require('./flash-player.js');
+const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale } = require('./i18n/i18n');
 
 Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
