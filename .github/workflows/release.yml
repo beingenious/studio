@@ -5,9 +5,15 @@ on:
     tags:
       - "*.*.*"
 
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  APPLE_ID: ${{ secrets.APPLE_ID }}
+  APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
+  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
 jobs:
   build_on_win:
-    runs-on: windows-2016
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
