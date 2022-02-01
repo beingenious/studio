@@ -10,23 +10,32 @@ env:
   APPLE_ID: ${{ secrets.APPLE_ID }}
   APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CSC_LINK: ${{ secrets.CSC_LINK }}
+  CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+  WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+  WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+  BUGSNAG_API_KEY: ${{ secrets.BUGSNAG_API_KEY }}
 
 jobs:
-  build_on_win:
-    runs-on: windows-latest
+  build:
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: '14'
+      - run: brew install xz rpm
       - run: npm install
-      - run: npm run dist-windows
+      - run: npm run dist
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             ./dist/*.exe*
-            ./dist/latest.yml
+            ./dist/*.dmg*
+            ./dist/*mac.zip
+            ./dist/pandasuite-*
+            ./dist/latest*
           fail_on_unmatched_files: true
           draft: true
