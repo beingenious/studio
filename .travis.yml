@@ -12,3 +12,4 @@ addons:
   homebrew:
     packages:
     - xz
+    - rpm
