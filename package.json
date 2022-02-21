@@ -98,7 +98,8 @@
 			"extraResources": [
 				"./static/flash_player_ppapi/*.so",
 				"./static/pdfjs/**/*"
-			]
+			],
+			"icon": "build/icon.png"
 		},
 		"win": {
 			"verifyUpdateCodeSignature": false,
