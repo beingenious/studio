@@ -100,9 +100,14 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
   });
   win.maximize();
 
-  ipcMain.on('triggerFineUploaderLinux', (event, id) => {
-    if (win.webContents) {
-      win.webContents.executeJavaScript(`document.querySelector('#${id} input').click();`, true);
+  ipcMain.on('triggerFineUploaderLinux', (event, data) => {
+    let currentWindow = BrowserWindow.getFocusedWindow();
+
+    if (!currentWindow) {
+      currentWindow = win;
+    }
+    if (data && data.id && currentWindow.webContents) {
+      currentWindow.webContents.executeJavaScript(`document.querySelector('#${data.id} input').click();`, true);
     }
   });
 
