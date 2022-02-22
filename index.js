@@ -104,6 +104,9 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
     const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
 
     if (data && data.id && currentWindow.webContents) {
+      if (process.platform === 'linux') {
+        currentWindow.blur();
+      }
       currentWindow.webContents.executeJavaScript(`document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`, true);
     }
   });
