@@ -101,13 +101,10 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
   win.maximize();
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
-    let currentWindow = BrowserWindow.getFocusedWindow();
+    const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
 
-    if (!currentWindow) {
-      currentWindow = win;
-    }
     if (data && data.id && currentWindow.webContents) {
-      currentWindow.webContents.executeJavaScript(`document.querySelector('#${data.id} input').click();`, true);
+      currentWindow.webContents.executeJavaScript(`document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`, true);
     }
   });
 
