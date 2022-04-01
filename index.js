@@ -9,6 +9,7 @@ const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
 const { download } = require('electron-dl');
 const serve = require('electron-serve');
+const windowStateKeeper = require('electron-window-state');
 
 const Bugsnag = require('@bugsnag/js');
 
@@ -85,11 +86,16 @@ const studioOnMenuItemUpdate = (item) => {
 };
 
 const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDASUITE_AUTHORING_PATH}/latest`) => {
+  const mainWindowState = windowStateKeeper({
+    defaultWidth: 1280,
+    defaultHeight: 800,
+  });
+
   const win = new BrowserWindow({
     title: app.getName(),
     show: false,
-    width: 1280,
-    height: 800,
+    width: mainWindowState.width,
+    height: mainWindowState.height,
     frame: !is.macos,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
@@ -100,6 +106,8 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       backgroundThrottling: false,
     },
   });
+
+  mainWindowState.manage(win);
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
     const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
