@@ -125,10 +125,14 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
         }
         if (data.click) {
           if (data.id === 'zoom') {
-            if (win.isMaximized()) {
-              win.unmaximize();
-            } else {
-              win.maximize();
+            try {
+              if (win.isMaximized()) {
+                win.unmaximize();
+              } else {
+                win.maximize();
+              }
+            } catch (e) {
+              // Object has been destroyed
             }
           } else if (data.id === 'new_window') {
             (async () => {
