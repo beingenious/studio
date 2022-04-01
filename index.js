@@ -212,9 +212,11 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      const downloadItem = await download(win, newUrl);
-      const filename = downloadItem.getSavePath();
-      shell.showItemInFolder(filename);
+      download(win, newUrl).then((downloadItem) => {
+        const filename = downloadItem.getSavePath();
+        shell.showItemInFolder(filename);
+      }).catch(() => {
+      });
       return;
     }
 
