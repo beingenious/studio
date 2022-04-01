@@ -79,7 +79,7 @@ function getPublicationWindowByUrl(url) {
 const studioOnMenuItemUpdate = (item) => {
   const currentWindow = BrowserWindow.getFocusedWindow();
 
-  if (currentWindow.webContents) {
+  if (currentWindow && currentWindow.webContents) {
     currentWindow.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
   }
 };
