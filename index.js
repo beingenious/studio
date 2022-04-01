@@ -88,6 +88,8 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
   const win = new BrowserWindow({
     title: app.getName(),
     show: false,
+    width: 1280,
+    height: 800,
     frame: !is.macos,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
@@ -98,7 +100,6 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       backgroundThrottling: false,
     },
   });
-  win.maximize();
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
     const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
