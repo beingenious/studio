@@ -107,7 +107,8 @@
 			"extraResources": [
 				"./static/flash_player_ppapi/*.dll",
 				"./static/pdfjs/**/*"
-			]
+			],
+			"sign": "scripts/sign/sign.js"
 		},
 		"afterSign": "scripts/notarize.js"
 	}
