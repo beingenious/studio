@@ -151,6 +151,15 @@ module.exports = function initMenu(options) {
         },
         { type: 'separator' },
         {
+          role: 'cut',
+        },
+        {
+          role: 'copy',
+        },
+        {
+          role: 'paste',
+        },
+        {
           label: __('menu.delete'),
           id: 'delete',
           accelerator: 'Backspace',
