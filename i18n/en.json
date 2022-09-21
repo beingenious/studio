@@ -14,6 +14,7 @@
   "menu.new_window": "New Window",
   "menu.new": "New Project...",
   "menu.open": "Open...",
+  "menu.close": "Close",
   "menu.duplicate": "Duplicate",
   "menu.save": "Save",
   "menu.undo": "Undo",

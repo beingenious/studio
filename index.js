@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut,
+  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut, BrowserView,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -16,6 +16,9 @@ const Bugsnag = require('@bugsnag/js');
 const values = require('lodash/values');
 const pickBy = require('lodash/pickBy');
 const omitBy = require('lodash/omitBy');
+const each = require('lodash/each');
+const find = require('lodash/find');
+const map = require('lodash/map');
 
 const menu = require('./menu');
 const { setupFlashPlayer } = require('./flash-player');
@@ -37,6 +40,8 @@ const PANDASUITE_AUTHORING_PATH = is.development ? 'dashboard/authoring' : 'auth
 const PANDASTUDIO_SCHEME = 'pandastudio';
 const PDFJS_SCHEME = 'pdf';
 
+const ELECTRON_MENU_HEIGHT = 45;
+
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
@@ -48,6 +53,11 @@ if (!is.development) {
 
   autoUpdater.checkForUpdates().catch(() => {});
 }
+
+const publicationsBrowserView = {};
+const garbageBrowserView = {};
+const publicationsMenuItems = {};
+let focusBrowserView = null;
 
 let publicationsWindow = {};
 let focusedWindow = null;
@@ -78,14 +88,201 @@ function getPublicationWindowByUrl(url) {
 }
 
 const studioOnMenuItemUpdate = (item) => {
-  const currentWindow = BrowserWindow.getFocusedWindow();
-
-  if (currentWindow && currentWindow.webContents) {
-    currentWindow.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
+  if (focusBrowserView && focusBrowserView.webContents) {
+    focusBrowserView.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
   }
 };
 
-const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDASUITE_AUTHORING_PATH}/latest`) => {
+const studioOnSelectedTab = (item) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+  if (currentWindow && currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(`window.studioOnSelectedTab && window.studioOnSelectedTab(${JSON.stringify(item)});`, true);
+  }
+};
+
+const studioOnRemovedTab = (item) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+  if (currentWindow && currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(`window.studioOnRemovedTab && window.studioOnRemovedTab(${JSON.stringify(item)});`, true);
+  }
+};
+
+const studioOnUpdatedTab = (item) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+  if (currentWindow && currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(`window.studioOnUpdatedTab && window.studioOnUpdatedTab(${JSON.stringify(item)});`, true);
+  }
+};
+
+const setDocumentEdited = (url, enabled) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+  if (currentWindow && currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(`window.setDocumentEdited && window.setDocumentEdited(${JSON.stringify({ url, edited: enabled })});`, true);
+  }
+};
+
+const updateMenuItem = (url, data) => {
+  if (data && data.id) {
+    const applicationMenu = Menu.getApplicationMenu();
+
+    if (applicationMenu) {
+      const menuItem = applicationMenu.getMenuItemById(data.id);
+
+      if (menuItem) {
+        if (data.enabled !== undefined) {
+          menuItem.enabled = data.enabled;
+        }
+      }
+      if (data.click) {
+        if (data.id === 'new') {
+          studioOnSelectedTab({ new: true });
+        } else if (data.id === 'close') {
+          studioOnRemovedTab({ url });
+        } else {
+          studioOnMenuItemUpdate(data);
+        }
+      }
+    }
+  }
+};
+
+const updateMenuItems = (currentUrl, items) => {
+  each(items, (item) => {
+    if (item && item.id === 'save') {
+      setDocumentEdited(currentUrl, item.enabled);
+    }
+    updateMenuItem(currentUrl, item);
+  });
+};
+
+const removeBrowserView = (url) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+  const view = publicationsBrowserView[url];
+
+  if (view) {
+    currentWindow.removeBrowserView(view);
+    garbageBrowserView[url] = view;
+    delete publicationsBrowserView[url];
+  }
+  delete publicationsMenuItems[url];
+};
+
+const updateExistingMenuItems = (url) => {
+  const menuItems = publicationsMenuItems[url];
+
+  if (menuItems) {
+    updateMenuItems(url, menuItems);
+  } else {
+    const firstMenuItem = find(publicationsMenuItems, (item) => item);
+
+    if (firstMenuItem) {
+      updateMenuItems(url, map(firstMenuItem, (item) => ({ ...item, enabled: false })));
+    }
+  }
+};
+
+const createOrSelectBrowserView = ({ url, pinned }) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+  const contentBounds = currentWindow.getContentBounds();
+
+  let view = publicationsBrowserView[url];
+  if (!view) {
+    view = new BrowserView({
+      webPreferences: {
+        preload: path.join(__dirname, './preload.js'),
+        webviewTag: true,
+        plugins: true,
+        webSecurity: false, // For PDF scheme, because of a CORS error :-(
+        backgroundThrottling: false,
+        allowRendererProcessReuse: true,
+        contextIsolation: false,
+      },
+    });
+
+    view.setBackgroundColor('#fff');
+    publicationsBrowserView[url] = view;
+    currentWindow.addBrowserView(view);
+
+    view.webContents.loadURL(url);
+    view.webContents.openDevTools({ mode: 'undocked' });
+
+    view.webContents.on('will-prevent-unload', async (event) => {
+      const result = await dialog.showMessageBox(currentWindow, {
+        type: 'question',
+        buttons: [__('Leave'), __('Cancel')],
+        title: __('Do you want to close your project?'),
+        message: __('Changes you made may not be saved.'),
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (result.response === 0) {
+        event.preventDefault();
+        removeBrowserView(url);
+      }
+    });
+
+    const handleRedirect = async (e, newUrl) => {
+      if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1
+          && !newUrl.startsWith(PANDASTUDIO_SCHEME)) {
+        return;
+      }
+      if (newUrl.indexOf('get_aws_url_for') !== -1) {
+        e.preventDefault();
+        download(currentWindow, newUrl).then((downloadItem) => {
+          const filename = downloadItem.getSavePath();
+          shell.showItemInFolder(filename);
+        }).catch(() => {
+        });
+        return;
+      }
+
+      e.preventDefault();
+      shell.openExternal(newUrl);
+    };
+
+    view.webContents.on('will-navigate', handleRedirect);
+    view.webContents.on('new-window', handleRedirect);
+
+    view.webContents.on('did-navigate-in-page', async (event, newUrl) => {
+      if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/loggedout`) !== -1) {
+        shell.moveItemToTrash(app.getPath('userData'));
+        app.relaunch();
+        app.exit(0);
+      }
+    });
+  }
+
+  view.setAutoResize({ width: true, height: true });
+  view.setBounds({
+    x: 0,
+    y: ELECTRON_MENU_HEIGHT,
+    width: contentBounds.width,
+    height: contentBounds.height - ELECTRON_MENU_HEIGHT,
+  });
+
+  // if (focusBrowserView && focusBrowserView !== view) {
+  //   currentWindow.removeBrowserView(focusBrowserView);
+  // }
+  // currentWindow.addBrowserView(view);
+
+  focusBrowserView = view;
+  currentWindow.setTopBrowserView(view);
+
+  view.webContents.focus();
+
+  each(garbageBrowserView, (v, k) => {
+    v.webContents.destroy();
+    delete garbageBrowserView[k];
+  });
+
+  updateExistingMenuItems(url);
+};
+
+const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`) => {
   const mainWindowState = windowStateKeeper({
     defaultWidth: 1280,
     defaultHeight: 800,
@@ -104,10 +301,42 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       plugins: true,
       webSecurity: false, // For PDF scheme, because of a CORS error :-(
       backgroundThrottling: false,
+      allowRendererProcessReuse: true,
+      contextIsolation: false,
     },
   });
 
   mainWindowState.manage(win);
+
+  ipcMain.on('createOrSelectTab', (event, data) => {
+    createOrSelectBrowserView(data);
+  });
+
+  ipcMain.on('updateTab', (event, { url, label, fromUrl }) => {
+    if (fromUrl !== url) {
+      const menuItems = publicationsMenuItems[fromUrl];
+
+      if (menuItems) {
+        publicationsMenuItems[url] = menuItems;
+        delete publicationsMenuItems[fromUrl];
+      }
+
+      const view = publicationsBrowserView[fromUrl];
+      if (view) {
+        publicationsBrowserView[url] = view;
+        delete publicationsBrowserView[fromUrl];
+      }
+    }
+    studioOnUpdatedTab({
+      fromUrl,
+      label,
+      url,
+    });
+  });
+
+  ipcMain.on('removeTab', (event, { url }) => {
+    removeBrowserView(url);
+  });
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
     const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
@@ -116,46 +345,26 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/${PANDA
       if (process.platform === 'linux') {
         currentWindow.blur();
       }
-      currentWindow.webContents.executeJavaScript(`document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`, true);
+      if (focusBrowserView && focusBrowserView.webContents) {
+        focusBrowserView.webContents.executeJavaScript(`document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`, true);
+      }
+    }
+  });
+
+  ipcMain.on('updateMenuItems', (event, items) => {
+    const currentUrl = event.sender.getURL();
+
+    publicationsMenuItems[currentUrl] = items;
+
+    if (focusBrowserView && focusBrowserView.webContents.getURL() === currentUrl) {
+      updateMenuItems(currentUrl, items);
     }
   });
 
   ipcMain.on('updateMenuItem', (event, data) => {
-    if (data && data.id) {
-      const applicationMenu = Menu.getApplicationMenu();
+    const currentUrl = event.sender.getURL();
 
-      if (applicationMenu) {
-        const menuItem = applicationMenu.getMenuItemById(data.id);
-
-        if (menuItem) {
-          if (data.enabled !== undefined) {
-            menuItem.enabled = data.enabled;
-          }
-        }
-        if (data.click) {
-          if (data.id === 'zoom') {
-            try {
-              if (win.isMaximized()) {
-                win.unmaximize();
-              } else {
-                win.maximize();
-              }
-            } catch (e) {
-              // Object has been destroyed
-            }
-          } else if (data.id === 'new_window') {
-            (async () => {
-              const newWin = await createPublicationWindow();
-              publicationsWindow[newWin.webContents.getURL()] = newWin;
-            })();
-          } else if (data.id === 'close') {
-            win.close();
-          } else {
-            studioOnMenuItemUpdate(data);
-          }
-        }
-      }
-    }
+    updateMenuItem(currentUrl, data);
   });
 
   ipcMain.on('updateLanguage', (event, data) => {
@@ -282,20 +491,22 @@ if (!app.requestSingleInstanceLock()) {
 const openDeepLinkingUrl = async (url) => {
   if (url) {
     const firstWindow = publicationsWindow && values(publicationsWindow)[0];
+
     if (url.startsWith('__') && firstWindow) {
       const deeplinkingParts = url.split('/');
       const cmd = `window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`;
+
+      each(publicationsBrowserView, (browserView) => {
+        if (browserView.webContents) {
+          browserView.webContents.executeJavaScript(cmd, true);
+        }
+      });
+
       firstWindow.webContents.executeJavaScript(cmd, true);
       resumePublicationWindow(firstWindow);
     } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
-      const existingWin = getPublicationWindowByUrl(url);
-
-      if (existingWin) {
-        resumePublicationWindow(existingWin);
-      } else if (app.isReady()) {
-        const win = await createPublicationWindow(url);
-        publicationsWindow[url] = win;
-      }
+      resumePublicationWindow(firstWindow);
+      studioOnSelectedTab({ url });
     }
   }
 };
@@ -342,27 +553,27 @@ serve({
 const createMenu = () => {
   Menu.setApplicationMenu(
     menu({
-      newWindow: async function newWindow() {
-        const win = await createPublicationWindow();
-        publicationsWindow[win.webContents.getURL()] = win;
+      newWindow: () => {
+        studioOnSelectedTab({ new: true });
+      },
+      closeWindow: () => {
+        if (focusBrowserView && focusBrowserView.webContents) {
+          const focusUrl = focusBrowserView.webContents.getURL();
+
+          if (focusUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1) {
+            return studioOnRemovedTab({ url: focusUrl });
+          }
+        }
+        const win = focusedWindow || values(publicationsWindow)[0];
+
+        if (win) {
+          win.close();
+        }
+        return false;
       },
       studioOnMenuItemUpdate,
     }),
   );
-
-  if (is.macos) {
-    app.dock.setMenu(
-      Menu.buildFromTemplate([
-        {
-          label: __('menu.new_window'),
-          click: async function newWindow() {
-            const win = await createPublicationWindow();
-            publicationsWindow[win.webContents.getURL()] = win;
-          },
-        },
-      ]),
-    );
-  }
 };
 
 (async () => {
