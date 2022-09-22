@@ -87,6 +87,22 @@ function getPublicationWindowByUrl(url) {
   return values(pickBy(publicationsWindow, (v, k) => (k === url)))[0];
 }
 
+const executeJavaScript = (cmd, userInteraction = true) => {
+  const currentWindow = focusedWindow
+    || BrowserWindow.getFocusedWindow()
+    || (publicationsWindow && values(publicationsWindow)[0]);
+
+  each(publicationsBrowserView, (browserView) => {
+    if (browserView.webContents) {
+      browserView.webContents.executeJavaScript(cmd, userInteraction);
+    }
+  });
+
+  if (currentWindow && currentWindow.webContents) {
+    currentWindow.webContents.executeJavaScript(cmd, userInteraction);
+  }
+};
+
 const studioOnMenuItemUpdate = (item) => {
   if (focusBrowserView && focusBrowserView.webContents) {
     focusBrowserView.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
@@ -372,6 +388,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
       if (changeLocale(data.language)) {
         // eslint-disable-next-line no-use-before-define
         createMenu();
+        executeJavaScript(`window.dashboardUpdateLanguage && window.dashboardUpdateLanguage("${data.language}");`);
       }
     }
   });
@@ -494,15 +511,7 @@ const openDeepLinkingUrl = async (url) => {
 
     if (url.startsWith('__') && firstWindow) {
       const deeplinkingParts = url.split('/');
-      const cmd = `window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`;
-
-      each(publicationsBrowserView, (browserView) => {
-        if (browserView.webContents) {
-          browserView.webContents.executeJavaScript(cmd, true);
-        }
-      });
-
-      firstWindow.webContents.executeJavaScript(cmd, true);
+      executeJavaScript(`window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`);
       resumePublicationWindow(firstWindow);
     } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
       resumePublicationWindow(firstWindow);
