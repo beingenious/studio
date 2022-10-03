@@ -19,7 +19,7 @@
 		"dist-windows": "electron-builder --windows --x64 --ia32",
 		"dist-mac": "electron-builder --macos --x64",
 		"dist-linux": "electron-builder --linux --x64 --ia32",
-		"dist": "electron-builder --macos --linux --windows --x64 --ia32 --armv7l --arm64",
+		"dist": "electron-builder --macos --linux --windows --x64 --ia32 --arm64",
 		"release": "np"
 	},
 	"dependencies": {
