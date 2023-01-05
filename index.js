@@ -411,6 +411,9 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
 
   win.on('focus', () => {
     focusedWindow = win;
+    if (focusBrowserView) {
+      focusBrowserView.webContents.focus();
+    }
   });
 
   win.on('ready-to-show', () => {
