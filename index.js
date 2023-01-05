@@ -270,15 +270,15 @@ const createOrSelectBrowserView = ({ url, pinned }) => {
         app.exit(0);
       }
     });
-  }
 
-  view.setAutoResize({ width: true, height: true });
-  view.setBounds({
-    x: 0,
-    y: ELECTRON_MENU_HEIGHT,
-    width: contentBounds.width,
-    height: contentBounds.height - ELECTRON_MENU_HEIGHT,
-  });
+    view.setAutoResize({ width: true, height: true });
+    view.setBounds({
+      x: 0,
+      y: ELECTRON_MENU_HEIGHT,
+      width: contentBounds.width,
+      height: contentBounds.height - ELECTRON_MENU_HEIGHT,
+    });
+  }
 
   // if (focusBrowserView && focusBrowserView !== view) {
   //   currentWindow.removeBrowserView(focusBrowserView);
@@ -289,6 +289,7 @@ const createOrSelectBrowserView = ({ url, pinned }) => {
   currentWindow.setTopBrowserView(view);
 
   view.webContents.focus();
+  view.webContents.executeJavaScript('var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);', true);
 
   each(garbageBrowserView, (v, k) => {
     v.webContents.destroy();
