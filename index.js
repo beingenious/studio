@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut, BrowserView,
+  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut, BrowserView, screen,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -300,9 +300,13 @@ const createOrSelectBrowserView = ({ url, pinned }) => {
 };
 
 const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`) => {
+  const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const defaultWidth = Math.floor(bounds.width * 0.8);
+  const defaultHeight = Math.floor(bounds.height * 0.9);
+
   const mainWindowState = windowStateKeeper({
-    defaultWidth: 1280,
-    defaultHeight: 800,
+    defaultWidth,
+    defaultHeight,
   });
 
   const win = new BrowserWindow({
@@ -310,6 +314,8 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
     show: false,
     width: mainWindowState.width,
     height: mainWindowState.height,
+    minWidth: 800,
+    minHeight: 600,
     frame: !is.macos,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
