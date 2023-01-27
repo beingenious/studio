@@ -14,7 +14,6 @@ const windowStateKeeper = require('electron-window-state');
 const Bugsnag = require('@bugsnag/js');
 
 const values = require('lodash/values');
-const pickBy = require('lodash/pickBy');
 const omitBy = require('lodash/omitBy');
 const each = require('lodash/each');
 const find = require('lodash/find');
@@ -37,7 +36,9 @@ setupFlashPlayer();
 
 const PANDASUITE_HOST = is.development ? 'dev.pandasuite.com' : 'pandasuite.com';
 const PANDASUITE_AUTHORING_PATH = is.development ? 'dashboard/authoring' : 'authoring';
+
 const PANDASTUDIO_SCHEME = 'pandastudio';
+const PANDASTUDIO_START_URL = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`;
 const PDFJS_SCHEME = 'pdf';
 
 const ELECTRON_MENU_HEIGHT = 45;
@@ -71,20 +72,24 @@ function schemeToUrl(url) {
   );
 }
 
-function resumePublicationWindow(win) {
-  if (win.isMinimized()) {
-    win.restore();
+function resumePublicationWindow() {
+  const currentWindow = focusedWindow
+    || BrowserWindow.getFocusedWindow()
+    || (publicationsWindow && values(publicationsWindow)[0]);
+
+  if (!currentWindow) {
+    return;
   }
-  win.show();
-  win.focus();
+
+  if (currentWindow.isMinimized()) {
+    currentWindow.restore();
+  }
+  currentWindow.show();
+  currentWindow.focus();
 }
 
 function removePublicationWindow(win) {
   publicationsWindow = omitBy(publicationsWindow, (v) => v === win);
-}
-
-function getPublicationWindowByUrl(url) {
-  return values(pickBy(publicationsWindow, (v, k) => (k === url)))[0];
 }
 
 const executeJavaScript = (cmd, userInteraction = true) => {
@@ -201,8 +206,8 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
-const createOrSelectBrowserView = ({ url, pinned }) => {
-  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+const createOrSelectBrowserView = ({ url, pinned }, win) => {
+  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
   const contentBounds = currentWindow.getContentBounds();
 
   let view = publicationsBrowserView[url];
@@ -224,7 +229,7 @@ const createOrSelectBrowserView = ({ url, pinned }) => {
     currentWindow.addBrowserView(view);
 
     view.webContents.loadURL(url);
-    view.webContents.openDevTools({ mode: 'undocked' });
+    // view.webContents.openDevTools({ mode: 'undocked' });
 
     view.webContents.on('will-prevent-unload', async (event) => {
       const result = await dialog.showMessageBox(currentWindow, {
@@ -299,7 +304,20 @@ const createOrSelectBrowserView = ({ url, pinned }) => {
   updateExistingMenuItems(url);
 };
 
-const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`) => {
+const openDeepLinkingUrl = async (url) => {
+  if (url) {
+    if (url.startsWith('__')) {
+      const deeplinkingParts = url.split('/');
+      executeJavaScript(`window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`);
+      resumePublicationWindow();
+    } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
+      resumePublicationWindow();
+      studioOnSelectedTab({ url });
+    }
+  }
+};
+
+const createPublicationWindow = async (url = null) => {
   const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const defaultWidth = Math.floor(bounds.width * 0.8);
   const defaultHeight = Math.floor(bounds.height * 0.9);
@@ -332,7 +350,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
   mainWindowState.manage(win);
 
   ipcMain.on('createOrSelectTab', (event, data) => {
-    createOrSelectBrowserView(data);
+    createOrSelectBrowserView(data, win);
   });
 
   ipcMain.on('updateTab', (event, { url, label, fromUrl }) => {
@@ -409,7 +427,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
     const currentUrl = win.webContents.getURL();
     if (publicationsWindow[currentUrl]) {
       win.destroy();
-      resumePublicationWindow(publicationsWindow[currentUrl]);
+      resumePublicationWindow();
     } else {
       publicationsWindow[currentUrl] = win;
     }
@@ -428,6 +446,12 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
 
   win.on('closed', () => {
     removePublicationWindow(win);
+  });
+
+  win.webContents.on('dom-ready', () => {
+    if (url) {
+      openDeepLinkingUrl(url);
+    }
   });
 
   // https://www.chromestatus.com/feature/5082396709879808
@@ -506,7 +530,7 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
     },
   );
 
-  await win.loadURL(url).catch(() => { });
+  await win.loadURL(PANDASTUDIO_START_URL).catch(() => { });
   return win;
 };
 
@@ -514,21 +538,6 @@ const createPublicationWindow = async (url = `https://${PANDASUITE_HOST}/dashboa
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 }
-
-const openDeepLinkingUrl = async (url) => {
-  if (url) {
-    const firstWindow = publicationsWindow && values(publicationsWindow)[0];
-
-    if (url.startsWith('__') && firstWindow) {
-      const deeplinkingParts = url.split('/');
-      executeJavaScript(`window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`);
-      resumePublicationWindow(firstWindow);
-    } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
-      resumePublicationWindow(firstWindow);
-      studioOnSelectedTab({ url });
-    }
-  }
-};
 
 app.on('second-instance', async (event, argv) => {
   if (process.platform !== 'darwin') {
@@ -544,9 +553,12 @@ app.on('window-all-closed', () => {
 app.on('activate', async (event, hasVisibleWindows) => {
   if (is.macos) {
     if (!hasVisibleWindows) {
-      const win = focusedWindow || values(publicationsWindow)[0];
-      if (win) {
-        win.show();
+      const currentWindow = focusedWindow
+        || BrowserWindow.getFocusedWindow()
+        || (publicationsWindow && values(publicationsWindow)[0]);
+
+      if (currentWindow) {
+        currentWindow.show();
       }
     }
   }
