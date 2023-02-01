@@ -235,8 +235,8 @@ const createOrSelectBrowserView = ({ url, pinned }, win) => {
       const result = await dialog.showMessageBox(currentWindow, {
         type: 'question',
         buttons: [__('Leave'), __('Cancel')],
-        title: __('Do you want to close your project?'),
-        message: __('Changes you made may not be saved.'),
+        title: __('Are you sure you want to close this project?'),
+        message: __('Unsaved changes will be discarded.'),
         defaultId: 0,
         cancelId: 1,
       });
@@ -464,8 +464,8 @@ const createPublicationWindow = async (url = null) => {
     const result = await dialog.showMessageBox(win, {
       type: 'question',
       buttons: [__('Leave'), __('Cancel')],
-      title: __('Do you want to close your project?'),
-      message: __('Changes you made may not be saved.'),
+      title: __('Are you sure you want to close this project?'),
+      message: __('Unsaved changes will be discarded.'),
       defaultId: 0,
       cancelId: 1,
     });
