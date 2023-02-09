@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, globalShortcut, BrowserView, screen,
+  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, BrowserView, screen,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -185,6 +185,10 @@ const updateMenuItem = (url, data) => {
               currentWindow.maximize();
             }
           }
+        } else if (data.id === 'openDevTools') {
+          if (focusBrowserView && focusBrowserView.webContents) {
+            focusBrowserView.webContents.openDevTools({ mode: 'undocked' });
+          }
         } else {
           studioOnMenuItemUpdate(data);
         }
@@ -251,7 +255,9 @@ const createOrSelectBrowserView = ({ url, pinned }, win) => {
     currentWindow.addBrowserView(view);
 
     view.webContents.loadURL(url);
-    // view.webContents.openDevTools({ mode: 'undocked' });
+    if (is.development) {
+      view.webContents.openDevTools({ mode: 'undocked' });
+    }
 
     view.webContents.on('will-prevent-unload', async (event) => {
       const result = await dialog.showMessageBox(currentWindow, {
@@ -369,6 +375,10 @@ const createPublicationWindow = async (url = null) => {
       contextIsolation: false,
     },
   });
+
+  if (is.development) {
+    win.openDevTools({ mode: 'undocked' });
+  }
 
   mainWindowState.manage(win);
 
@@ -659,9 +669,4 @@ const createMenu = () => {
 
   const win = await createPublicationWindow(deeplinkingUrl);
   publicationsWindow[win.webContents.getURL()] = win;
-
-  const shortcut = process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I';
-  globalShortcut.register(shortcut, () => {
-    win.openDevTools({ mode: 'undocked' });
-  });
 })();
