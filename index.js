@@ -163,6 +163,28 @@ const updateMenuItem = (url, data) => {
           studioOnSelectedTab({ new: true });
         } else if (data.id === 'close') {
           studioOnRemovedTab({ url });
+        } else if (data.id === 'closeWindow') {
+          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+          if (currentWindow) {
+            currentWindow.close();
+          }
+        } else if (data.id === 'minimizeWindow') {
+          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+          if (currentWindow) {
+            currentWindow.minimize();
+          }
+        } else if (data.id === 'maximizeWindow') {
+          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+
+          if (currentWindow) {
+            if (currentWindow.isMaximized()) {
+              currentWindow.unmaximize();
+            } else {
+              currentWindow.maximize();
+            }
+          }
         } else {
           studioOnMenuItemUpdate(data);
         }
@@ -334,8 +356,9 @@ const createPublicationWindow = async (url = null) => {
     height: mainWindowState.height,
     minWidth: 800,
     minHeight: 600,
-    frame: !is.macos,
+    frame: false,
     titleBarStyle: 'hiddenInset',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, './preload.js'),
       webviewTag: true,
