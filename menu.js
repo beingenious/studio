@@ -88,46 +88,35 @@ module.exports = function initMenu(options) {
           label: __('menu.new'),
           id: 'new',
           accelerator: 'CommandOrControl+N',
-          click: performClick,
-        },
-        {
-          label: __('menu.new_window'),
-          id: 'new_window',
-          accelerator: 'CommandOrControl+Shift+N',
           click() {
             if (options && options.newWindow) {
               options.newWindow();
             }
           },
+          enabled: false,
         },
         {
           type: 'separator',
-        },
-        {
-          label: __('menu.open'),
-          id: 'open',
-          accelerator: 'CommandOrControl+O',
-          click: performClick,
-        },
-        {
-          type: 'separator',
-        },
-        {
-          label: __('menu.duplicate'),
-          id: 'duplicate',
-          click: performClick,
         },
         {
           label: __('menu.save'),
           id: 'save',
           accelerator: 'CommandOrControl+S',
           click: performClick,
+          enabled: false,
         },
         {
           type: 'separator',
         },
         {
-          role: 'close',
+          label: __('menu.close'),
+          id: 'close',
+          accelerator: 'CommandOrControl+W',
+          click() {
+            if (options && options.closeWindow) {
+              options.closeWindow();
+            }
+          },
         },
       ],
     },
