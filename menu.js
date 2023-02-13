@@ -93,6 +93,7 @@ module.exports = function initMenu(options) {
               options.newWindow();
             }
           },
+          enabled: false,
         },
         {
           type: 'separator',
