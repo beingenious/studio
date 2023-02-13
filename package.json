@@ -19,7 +19,7 @@
 		"dist-windows": "electron-builder --windows --x64 --ia32",
 		"dist-mac": "electron-builder --macos --x64",
 		"dist-linux": "electron-builder --linux --x64 --ia32",
-		"dist": "electron-builder --macos --linux --windows --x64 --ia32",
+		"dist": "npm run dist-windows && npm run dist-mac && npm run dist-linux",
 		"release": "np"
 	},
 	"dependencies": {
