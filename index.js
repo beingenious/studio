@@ -232,7 +232,7 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
-const createOrSelectBrowserView = ({ url, pinned }, win) => {
+const createOrSelectBrowserView = ({ url }, win) => {
   const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
   const contentBounds = currentWindow.getContentBounds();
 
@@ -386,30 +386,30 @@ const createPublicationWindow = async (url = null) => {
     createOrSelectBrowserView(data, win);
   });
 
-  ipcMain.on('updateTab', (event, { url, label, fromUrl }) => {
-    if (fromUrl !== url) {
+  ipcMain.on('updateTab', (event, { url: tabUrl, label, fromUrl }) => {
+    if (fromUrl !== tabUrl) {
       const menuItems = publicationsMenuItems[fromUrl];
 
       if (menuItems) {
-        publicationsMenuItems[url] = menuItems;
+        publicationsMenuItems[tabUrl] = menuItems;
         delete publicationsMenuItems[fromUrl];
       }
 
       const view = publicationsBrowserView[fromUrl];
       if (view) {
-        publicationsBrowserView[url] = view;
+        publicationsBrowserView[tabUrl] = view;
         delete publicationsBrowserView[fromUrl];
       }
     }
     studioOnUpdatedTab({
       fromUrl,
       label,
-      url,
+      tabUrl,
     });
   });
 
-  ipcMain.on('removeTab', (event, { url }) => {
-    removeBrowserView(url);
+  ipcMain.on('removeTab', (event, { url: tabUrl }) => {
+    removeBrowserView(tabUrl);
   });
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
