@@ -404,7 +404,7 @@ const createPublicationWindow = async (url = null) => {
     studioOnUpdatedTab({
       fromUrl,
       label,
-      tabUrl,
+      url: tabUrl,
     });
   });
 
