@@ -71,7 +71,8 @@
 			"darkModeSupport": true,
 			"extraResources": [
 				"./static/flash_player_ppapi/PepperFlashPlayer.plugin/**/*",
-				"./static/pdfjs/**/*"
+				"./static/pdfjs/**/*",
+				"./static/Icon.png"
 			]
 		},
 		"dmg": {

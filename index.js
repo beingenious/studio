@@ -357,6 +357,7 @@ const createPublicationWindow = async (url = null) => {
 
   const win = new BrowserWindow({
     title: app.getName(),
+    icon: is.linux ? path.join(__dirname, 'static', 'Icon.png') : undefined,
     show: false,
     width: mainWindowState.width,
     height: mainWindowState.height,
