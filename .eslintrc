@@ -23,6 +23,6 @@
     "wrap-iife": "off"
   },
   "settings": {
-    "import/core-modules": ["electron", "electron-notarize"]
+    "import/core-modules": ["electron", "@electron/notarize"]
   }
 }
