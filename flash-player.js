@@ -25,7 +25,14 @@ module.exports.setupFlashPlayer = function setupFlashPlayer() {
     if (is.linux) {
       app.commandLine.appendSwitch('no-sandbox');
     }
-    app.commandLine.appendSwitch('ppapi-flash-path',
-      path.join(__dirname.includes('.asar') ? process.resourcesPath : __dirname, 'static', 'flash_player_ppapi', pluginName));
+    app.commandLine.appendSwitch(
+      'ppapi-flash-path',
+      path.join(
+        __dirname.includes('.asar') ? process.resourcesPath : __dirname,
+        'static',
+        'flash_player_ppapi',
+        pluginName,
+      ),
+    );
   }
 };

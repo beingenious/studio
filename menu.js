@@ -134,7 +134,9 @@ module.exports = function initMenu(options) {
         {
           label: __('menu.redo'),
           id: 'redo',
-          accelerator: isMac ? 'Shift+CommandOrControl+Z' : 'CommandOrControl+Y',
+          accelerator: isMac
+            ? 'Shift+CommandOrControl+Z'
+            : 'CommandOrControl+Y',
           click: performClick,
           enabled: false,
         },
@@ -201,14 +203,18 @@ module.exports = function initMenu(options) {
         {
           label: __('menu.convert_multistate'),
           id: 'convert_multistate',
-          accelerator: isMac ? 'Shift+Command+Control+M' : 'Shift+Control+Alt+M',
+          accelerator: isMac
+            ? 'Shift+Command+Control+M'
+            : 'Shift+Control+Alt+M',
           click: performClick,
           enabled: false,
         },
         {
           label: __('menu.convert_dragdrop'),
           id: 'convert_dragdrop',
-          accelerator: isMac ? 'Shift+Command+Control+J' : 'Shift+Control+Alt+J',
+          accelerator: isMac
+            ? 'Shift+Command+Control+J'
+            : 'Shift+Control+Alt+J',
           click: performClick,
           enabled: false,
         },

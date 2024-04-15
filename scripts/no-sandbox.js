@@ -8,7 +8,9 @@ exports.default = async function noSandboxing(context) {
     }
   };
 
-  const isLinux = context.targets.find((target) => ['appImage', 'deb', 'snap', 'tar.gz'].includes(target.name));
+  const isLinux = context.targets.find((target) =>
+    ['appImage', 'deb', 'snap', 'tar.gz'].includes(target.name),
+  );
 
   if (!isLinux) {
     return;
@@ -27,7 +29,10 @@ exports.default = async function noSandboxing(context) {
     const pathPandaSuiteStudio = row.studio;
     const pathPandaSuiteStudioBin = row.studioBin;
 
-    if (fs.existsSync(pathPandaSuiteStudio) && !fs.existsSync(pathPandaSuiteStudioBin)) {
+    if (
+      fs.existsSync(pathPandaSuiteStudio) &&
+      !fs.existsSync(pathPandaSuiteStudioBin)
+    ) {
       requirePath(pathPandaSuiteStudio);
 
       fs.renameSync(pathPandaSuiteStudio, pathPandaSuiteStudioBin);

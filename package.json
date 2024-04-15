@@ -1,116 +1,116 @@
 {
-	"name": "pandasuite-studio",
-	"productName": "PandaSuite Studio",
-	"version": "1.6.5",
-	"description": "The best studio ever",
-	"license": "MIT",
-	"repository": "beingenious/studio",
-	"author": {
-		"name": "PandaSuite",
-		"email": "ilove@pandasuite.com",
-		"url": "https://pandasuite.com"
-	},
-	"scripts": {
-		"postinstall": "electron-builder install-app-deps",
-		"lint": "eslint . --ext .js",
-		"test": "npm run lint",
-		"start": "electron .",
-		"pack": "electron-builder --dir",
-		"dist-windows": "electron-builder --windows --x64 --ia32",
-		"dist-mac": "electron-builder --macos --x64",
-		"dist-linux": "electron-builder --linux --x64 --ia32",
-		"dist": "npm run dist-windows && npm run dist-mac && npm run dist-linux",
-		"release": "np"
-	},
-	"dependencies": {
-		"@bugsnag/js": "^7.6.0",
-		"dotenv": "^8.1.0",
-		"electron-context-menu": "^0.15.0",
-		"electron-debug": "^3.0.0",
-		"electron-dl": "^1.14.0",
-		"electron-serve": "^0.4.0",
-		"electron-store": "^4.0.0",
-		"electron-unhandled": "^3.0.0",
-		"electron-updater": "4.3.9",
-		"electron-util": "^0.12.0",
-		"electron-window-state": "^5.0.3",
-		"lodash": "^4.17.15"
-	},
-	"devDependencies": {
-		"@types/lodash": "^4.14.138",
-		"babel-eslint": "^10.0.3",
-		"electron": "^11.5.0",
-		"electron-builder": "^23.0.2",
-		"electron-notarize": "^0.1.1",
-		"eslint": "^5.9.0",
-		"eslint-config-airbnb": "^18.0.1",
-		"eslint-plugin-import": "^2.18.2",
-		"eslint-plugin-jsx-a11y": "^6.2.3",
-		"eslint-plugin-react": "^7.14.3",
-		"eslint-plugin-react-hooks": "^1.7.0",
-		"np": "^5.1.0"
-	},
-	"np": {
-		"publish": false,
-		"releaseDraft": false
-	},
-	"build": {
-		"appId": "com.pandasuite.studio",
-		"protocols": {
-			"name": "panda-deep-linking",
-			"schemes": [
-				"pandastudio"
-			]
-		},
-		"mac": {
-			"hardenedRuntime": true,
-			"gatekeeperAssess": false,
-			"entitlements": "build/entitlements.mac.plist",
-			"entitlementsInherit": "build/entitlements.mac.plist",
-			"category": "public.app-category.productivity",
-			"darkModeSupport": true,
-			"extraResources": [
-				"./static/flash_player_ppapi/PepperFlashPlayer.plugin/**/*",
-				"./static/pdfjs/**/*",
-				"./static/Icon.png"
-			]
-		},
-		"dmg": {
-			"iconSize": 160,
-			"contents": [
-				{
-					"x": 180,
-					"y": 170
-				},
-				{
-					"x": 480,
-					"y": 170,
-					"type": "link",
-					"path": "/Applications"
-				}
-			]
-		},
-		"linux": {
-			"target": [
-				"pacman",
-				"rpm",
-				"deb"
-			],
-			"category": "Network;Publishing",
-			"extraResources": [
-				"./static/flash_player_ppapi/*.so",
-				"./static/pdfjs/**/*"
-			],
-			"icon": "build/icon.png"
-		},
-		"win": {
-			"verifyUpdateCodeSignature": false,
-			"extraResources": [
-				"./static/flash_player_ppapi/*.dll",
-				"./static/pdfjs/**/*"
-			],
-			"sign": "scripts/sign/sign.js"
-		},
-		"afterSign": "scripts/notarize.js"
-	}
+  "name": "pandasuite-studio",
+  "productName": "PandaSuite Studio",
+  "version": "1.6.5",
+  "description": "The best studio ever",
+  "license": "MIT",
+  "repository": "beingenious/studio",
+  "author": {
+    "name": "PandaSuite",
+    "email": "ilove@pandasuite.com",
+    "url": "https://pandasuite.com"
+  },
+  "scripts": {
+    "postinstall": "electron-builder install-app-deps",
+    "lint": "eslint . --ext .js",
+    "test": "npm run lint",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist-windows": "electron-builder --windows --x64 --ia32",
+    "dist-mac": "electron-builder --macos --x64",
+    "dist-linux": "electron-builder --linux --x64 --ia32",
+    "dist": "npm run dist-windows && npm run dist-mac && npm run dist-linux",
+    "release": "np"
+  },
+  "dependencies": {
+    "@bugsnag/js": "^7.6.0",
+    "dotenv": "^8.1.0",
+    "electron-context-menu": "^0.15.0",
+    "electron-debug": "^3.0.0",
+    "electron-dl": "^1.14.0",
+    "electron-serve": "^0.4.0",
+    "electron-store": "^4.0.0",
+    "electron-unhandled": "^3.0.0",
+    "electron-updater": "4.3.9",
+    "electron-util": "^0.12.0",
+    "electron-window-state": "^5.0.3",
+    "lodash": "^4.17.15"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.138",
+    "babel-eslint": "^10.0.3",
+    "electron": "^11.5.0",
+    "electron-builder": "^23.0.2",
+    "electron-notarize": "^0.1.1",
+    "eslint": "^5.9.0",
+    "eslint-config-airbnb": "^18.0.1",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-react": "^7.14.3",
+    "eslint-plugin-react-hooks": "^1.7.0",
+    "np": "^5.1.0"
+  },
+  "np": {
+    "publish": false,
+    "releaseDraft": false
+  },
+  "build": {
+    "appId": "com.pandasuite.studio",
+    "protocols": {
+      "name": "panda-deep-linking",
+      "schemes": [
+        "pandastudio"
+      ]
+    },
+    "mac": {
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "extraResources": [
+        "./static/flash_player_ppapi/PepperFlashPlayer.plugin/**/*",
+        "./static/pdfjs/**/*",
+        "./static/Icon.png"
+      ]
+    },
+    "dmg": {
+      "iconSize": 160,
+      "contents": [
+        {
+          "x": 180,
+          "y": 170
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "pacman",
+        "rpm",
+        "deb"
+      ],
+      "category": "Network;Publishing",
+      "extraResources": [
+        "./static/flash_player_ppapi/*.so",
+        "./static/pdfjs/**/*"
+      ],
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "verifyUpdateCodeSignature": false,
+      "extraResources": [
+        "./static/flash_player_ppapi/*.dll",
+        "./static/pdfjs/**/*"
+      ],
+      "sign": "scripts/sign/sign.js"
+    },
+    "afterSign": "scripts/notarize.js"
+  }
 }

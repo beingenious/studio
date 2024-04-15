@@ -6,8 +6,12 @@ module.exports = (function i18n() {
   let currentLocale = 'en-US';
 
   const loadedLanguage = {
-    'en-US': JSON.parse(fs.readFileSync(path.join(__dirname, 'en.json'), 'utf8')),
-    'fr-FR': JSON.parse(fs.readFileSync(path.join(__dirname, 'fr.json'), 'utf8')),
+    'en-US': JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'en.json'), 'utf8'),
+    ),
+    'fr-FR': JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'fr.json'), 'utf8'),
+    ),
   };
 
   // eslint-disable-next-line no-underscore-dangle
@@ -33,4 +37,4 @@ module.exports = (function i18n() {
   this.changeLocale(app.getLocale());
 
   return this;
-}());
+})();

@@ -6,13 +6,8 @@
     "node": true
   },
   "rules": {
-    "arrow-body-style": [
-      "error",
-      "as-needed"
-    ],
-    "no-nested-ternary": [
-      0
-    ],
+    "arrow-body-style": ["error", "as-needed"],
+    "no-nested-ternary": [0],
     "max-len": [
       "error",
       {
@@ -21,9 +16,13 @@
         "ignoreStrings": true,
         "ignoreTemplateLiterals": true
       }
-    ]
+    ],
+    "operator-linebreak": "off",
+    "implicit-arrow-linebreak": "off",
+    "function-paren-newline": "off",
+    "wrap-iife": "off"
   },
   "settings": {
-    "import/core-modules": [ "electron", "electron-notarize" ]
+    "import/core-modules": ["electron", "electron-notarize"]
   }
 }

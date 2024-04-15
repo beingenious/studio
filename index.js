@@ -1,5 +1,13 @@
 const {
-  app, BrowserWindow, ipcMain, Menu, dialog, shell, session, BrowserView, screen,
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  dialog,
+  shell,
+  session,
+  BrowserView,
+  screen,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -34,8 +42,12 @@ debug();
 contextMenu();
 setupFlashPlayer();
 
-const PANDASUITE_HOST = is.development ? 'dev.pandasuite.com' : 'pandasuite.com';
-const PANDASUITE_AUTHORING_PATH = is.development ? 'dashboard/authoring' : 'authoring';
+const PANDASUITE_HOST = is.development
+  ? 'dev.pandasuite.com'
+  : 'pandasuite.com';
+const PANDASUITE_AUTHORING_PATH = is.development
+  ? 'dashboard/authoring'
+  : 'authoring';
 
 const PANDASTUDIO_SCHEME = 'pandastudio';
 const PANDASTUDIO_START_URL = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`;
@@ -49,7 +61,7 @@ app.setAppUserModelId('com.pandasuite.studio');
 if (!is.development) {
   const FOUR_HOURS = 1000 * 60 * 60 * 4;
   setInterval(() => {
-    autoUpdater.checkForUpdates().catch(() => { });
+    autoUpdater.checkForUpdates().catch(() => {});
   }, FOUR_HOURS);
 
   autoUpdater.checkForUpdates().catch(() => {});
@@ -66,16 +78,17 @@ let deeplinkingUrl;
 
 function schemeToUrl(url) {
   return (
-    url
-    && url.indexOf('://')
-    && url.substring(url.indexOf('://') + 3).replace(/(https?)\/\//, '$1://')
+    url &&
+    url.indexOf('://') &&
+    url.substring(url.indexOf('://') + 3).replace(/(https?)\/\//, '$1://')
   );
 }
 
 function resumePublicationWindow() {
-  const currentWindow = focusedWindow
-    || BrowserWindow.getFocusedWindow()
-    || (publicationsWindow && values(publicationsWindow)[0]);
+  const currentWindow =
+    focusedWindow ||
+    BrowserWindow.getFocusedWindow() ||
+    (publicationsWindow && values(publicationsWindow)[0]);
 
   if (!currentWindow) {
     return;
@@ -93,9 +106,10 @@ function removePublicationWindow(win) {
 }
 
 const executeJavaScript = (cmd, userInteraction = true) => {
-  const currentWindow = focusedWindow
-    || BrowserWindow.getFocusedWindow()
-    || (publicationsWindow && values(publicationsWindow)[0]);
+  const currentWindow =
+    focusedWindow ||
+    BrowserWindow.getFocusedWindow() ||
+    (publicationsWindow && values(publicationsWindow)[0]);
 
   each(publicationsBrowserView, (browserView) => {
     if (browserView.webContents) {
@@ -110,7 +124,12 @@ const executeJavaScript = (cmd, userInteraction = true) => {
 
 const studioOnMenuItemUpdate = (item) => {
   if (focusBrowserView && focusBrowserView.webContents) {
-    focusBrowserView.webContents.executeJavaScript(`window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(item)});`, true);
+    focusBrowserView.webContents.executeJavaScript(
+      `window.studioOnMenuItemUpdate && window.studioOnMenuItemUpdate(${JSON.stringify(
+        item,
+      )});`,
+      true,
+    );
   }
 };
 
@@ -118,7 +137,12 @@ const studioOnSelectedTab = (item) => {
   const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
 
   if (currentWindow && currentWindow.webContents) {
-    currentWindow.webContents.executeJavaScript(`window.studioOnSelectedTab && window.studioOnSelectedTab(${JSON.stringify(item)});`, true);
+    currentWindow.webContents.executeJavaScript(
+      `window.studioOnSelectedTab && window.studioOnSelectedTab(${JSON.stringify(
+        item,
+      )});`,
+      true,
+    );
   }
 };
 
@@ -126,7 +150,12 @@ const studioOnRemovedTab = (item) => {
   const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
 
   if (currentWindow && currentWindow.webContents) {
-    currentWindow.webContents.executeJavaScript(`window.studioOnRemovedTab && window.studioOnRemovedTab(${JSON.stringify(item)});`, true);
+    currentWindow.webContents.executeJavaScript(
+      `window.studioOnRemovedTab && window.studioOnRemovedTab(${JSON.stringify(
+        item,
+      )});`,
+      true,
+    );
   }
 };
 
@@ -134,7 +163,12 @@ const studioOnUpdatedTab = (item) => {
   const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
 
   if (currentWindow && currentWindow.webContents) {
-    currentWindow.webContents.executeJavaScript(`window.studioOnUpdatedTab && window.studioOnUpdatedTab(${JSON.stringify(item)});`, true);
+    currentWindow.webContents.executeJavaScript(
+      `window.studioOnUpdatedTab && window.studioOnUpdatedTab(${JSON.stringify(
+        item,
+      )});`,
+      true,
+    );
   }
 };
 
@@ -142,7 +176,13 @@ const setDocumentEdited = (url, enabled) => {
   const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
 
   if (currentWindow && currentWindow.webContents) {
-    currentWindow.webContents.executeJavaScript(`window.setDocumentEdited && window.setDocumentEdited(${JSON.stringify({ url, edited: enabled })});`, true);
+    currentWindow.webContents.executeJavaScript(
+      `window.setDocumentEdited && window.setDocumentEdited(${JSON.stringify({
+        url,
+        edited: enabled,
+      })});`,
+      true,
+    );
   }
 };
 
@@ -164,19 +204,22 @@ const updateMenuItem = (url, data) => {
         } else if (data.id === 'close') {
           studioOnRemovedTab({ url });
         } else if (data.id === 'closeWindow') {
-          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+          const currentWindow =
+            focusedWindow || BrowserWindow.getFocusedWindow();
 
           if (currentWindow) {
             currentWindow.close();
           }
         } else if (data.id === 'minimizeWindow') {
-          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+          const currentWindow =
+            focusedWindow || BrowserWindow.getFocusedWindow();
 
           if (currentWindow) {
             currentWindow.minimize();
           }
         } else if (data.id === 'maximizeWindow') {
-          const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow();
+          const currentWindow =
+            focusedWindow || BrowserWindow.getFocusedWindow();
 
           if (currentWindow) {
             if (currentWindow.isMaximized()) {
@@ -227,13 +270,17 @@ const updateExistingMenuItems = (url) => {
     const firstMenuItem = find(publicationsMenuItems, (item) => item);
 
     if (firstMenuItem) {
-      updateMenuItems(url, map(firstMenuItem, (item) => ({ ...item, enabled: false })));
+      updateMenuItems(
+        url,
+        map(firstMenuItem, (item) => ({ ...item, enabled: false })),
+      );
     }
   }
 };
 
 const createOrSelectBrowserView = ({ url }, win) => {
-  const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
+  const currentWindow =
+    focusedWindow || BrowserWindow.getFocusedWindow() || win;
   const contentBounds = currentWindow.getContentBounds();
 
   let view = publicationsBrowserView[url];
@@ -275,17 +322,20 @@ const createOrSelectBrowserView = ({ url }, win) => {
     });
 
     const handleRedirect = async (e, newUrl) => {
-      if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1
-          && !newUrl.startsWith(PANDASTUDIO_SCHEME)) {
+      if (
+        newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1 &&
+        !newUrl.startsWith(PANDASTUDIO_SCHEME)
+      ) {
         return;
       }
       if (newUrl.indexOf('get_aws_url_for') !== -1) {
         e.preventDefault();
-        download(currentWindow, newUrl).then((downloadItem) => {
-          const filename = downloadItem.getSavePath();
-          shell.showItemInFolder(filename);
-        }).catch(() => {
-        });
+        download(currentWindow, newUrl)
+          .then((downloadItem) => {
+            const filename = downloadItem.getSavePath();
+            shell.showItemInFolder(filename);
+          })
+          .catch(() => {});
         return;
       }
 
@@ -322,7 +372,10 @@ const createOrSelectBrowserView = ({ url }, win) => {
   currentWindow.setTopBrowserView(view);
 
   view.webContents.focus();
-  view.webContents.executeJavaScript('var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);', true);
+  view.webContents.executeJavaScript(
+    'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
+    true,
+  );
 
   each(garbageBrowserView, (v, k) => {
     v.webContents.destroy();
@@ -336,7 +389,11 @@ const openDeepLinkingUrl = async (url) => {
   if (url) {
     if (url.startsWith('__')) {
       const deeplinkingParts = url.split('/');
-      executeJavaScript(`window.${deeplinkingParts[0]} && window.${deeplinkingParts[0]}("${deeplinkingParts.slice(1).join('", "')}");`);
+      executeJavaScript(
+        `window.${deeplinkingParts[0]} && window.${
+          deeplinkingParts[0]
+        }("${deeplinkingParts.slice(1).join('", "')}");`,
+      );
       resumePublicationWindow();
     } else if (url.indexOf(PANDASUITE_HOST) !== -1) {
       resumePublicationWindow();
@@ -346,7 +403,9 @@ const openDeepLinkingUrl = async (url) => {
 };
 
 const createPublicationWindow = async (url = null) => {
-  const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const { bounds } = screen.getDisplayNearestPoint(
+    screen.getCursorScreenPoint(),
+  );
   const defaultWidth = Math.floor(bounds.width * 0.8);
   const defaultHeight = Math.floor(bounds.height * 0.9);
 
@@ -414,14 +473,18 @@ const createPublicationWindow = async (url = null) => {
   });
 
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
-    const currentWindow = focusedWindow || BrowserWindow.getFocusedWindow() || win;
+    const currentWindow =
+      focusedWindow || BrowserWindow.getFocusedWindow() || win;
 
     if (data && data.id && currentWindow.webContents) {
       if (process.platform === 'linux') {
         currentWindow.blur();
       }
       if (focusBrowserView && focusBrowserView.webContents) {
-        focusBrowserView.webContents.executeJavaScript(`document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`, true);
+        focusBrowserView.webContents.executeJavaScript(
+          `document.querySelector('#${data.id} input') && document.querySelector('#${data.id} input').click();`,
+          true,
+        );
       }
     }
   });
@@ -431,7 +494,10 @@ const createPublicationWindow = async (url = null) => {
 
     publicationsMenuItems[currentUrl] = items;
 
-    if (focusBrowserView && focusBrowserView.webContents.getURL() === currentUrl) {
+    if (
+      focusBrowserView &&
+      focusBrowserView.webContents.getURL() === currentUrl
+    ) {
       updateMenuItems(currentUrl, items);
     }
   });
@@ -447,7 +513,9 @@ const createPublicationWindow = async (url = null) => {
       if (changeLocale(data.language)) {
         // eslint-disable-next-line no-use-before-define
         createMenu();
-        executeJavaScript(`window.dashboardUpdateLanguage && window.dashboardUpdateLanguage("${data.language}");`);
+        executeJavaScript(
+          `window.dashboardUpdateLanguage && window.dashboardUpdateLanguage("${data.language}");`,
+        );
       }
     }
   });
@@ -509,17 +577,20 @@ const createPublicationWindow = async (url = null) => {
   });
 
   const handleRedirect = async (e, newUrl) => {
-    if (newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1
-      && !newUrl.startsWith(PANDASTUDIO_SCHEME)) {
+    if (
+      newUrl.indexOf(`/${PANDASUITE_AUTHORING_PATH}/`) !== -1 &&
+      !newUrl.startsWith(PANDASTUDIO_SCHEME)
+    ) {
       return;
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      download(win, newUrl).then((downloadItem) => {
-        const filename = downloadItem.getSavePath();
-        shell.showItemInFolder(filename);
-      }).catch(() => {
-      });
+      download(win, newUrl)
+        .then((downloadItem) => {
+          const filename = downloadItem.getSavePath();
+          shell.showItemInFolder(filename);
+        })
+        .catch(() => {});
       return;
     }
 
@@ -548,15 +619,16 @@ const createPublicationWindow = async (url = null) => {
   win.webContents.session.webRequest.onBeforeRequest(
     REQUEST_FILTER,
     (details, callback) => {
-      if (/\.pdf(\?([^/]+)?)?$/i.test(details.url)
-        && !(details.referrer === '' && details.resourceType === 'xhr')) {
+      if (
+        /\.pdf(\?([^/]+)?)?$/i.test(details.url) &&
+        !(details.referrer === '' && details.resourceType === 'xhr')
+      ) {
         const matches = details.url.match(
           RegExp(/([^:]+:\/\/)([^/]+)(\/[^/]+\/[^?]+)/),
         );
         if (matches) {
           return callback({
-            redirectURL:
-              `${PDFJS_SCHEME}://-/web/viewer.html?toolbar=0&statusbar=0&navpanes=0&messages=0&file=${matches[1]}${matches[2]}${matches[3]}`,
+            redirectURL: `${PDFJS_SCHEME}://-/web/viewer.html?toolbar=0&statusbar=0&navpanes=0&messages=0&file=${matches[1]}${matches[2]}${matches[3]}`,
           });
         }
       }
@@ -564,7 +636,7 @@ const createPublicationWindow = async (url = null) => {
     },
   );
 
-  await win.loadURL(PANDASTUDIO_START_URL).catch(() => { });
+  await win.loadURL(PANDASTUDIO_START_URL).catch(() => {});
   return win;
 };
 
@@ -587,9 +659,10 @@ app.on('window-all-closed', () => {
 app.on('activate', async (event, hasVisibleWindows) => {
   if (is.macos) {
     if (!hasVisibleWindows) {
-      const currentWindow = focusedWindow
-        || BrowserWindow.getFocusedWindow()
-        || (publicationsWindow && values(publicationsWindow)[0]);
+      const currentWindow =
+        focusedWindow ||
+        BrowserWindow.getFocusedWindow() ||
+        (publicationsWindow && values(publicationsWindow)[0]);
 
       if (currentWindow) {
         currentWindow.show();
@@ -610,7 +683,8 @@ app.on('open-url', async (event, url) => {
 serve({
   directory: path.join(
     __dirname.includes('.asar') ? process.resourcesPath : __dirname,
-    'static', 'pdfjs',
+    'static',
+    'pdfjs',
   ),
   scheme: PDFJS_SCHEME,
 });
@@ -647,18 +721,26 @@ const createMenu = () => {
   // https://github.com/electron/electron/issues/9995
   const { cookies } = session.defaultSession;
   cookies.on('changed', (event, cookie, cause, removed) => {
-    if (cookie.domain.indexOf(PANDASUITE_HOST) !== -1 && cookie.session && !removed) {
-      const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${cookie.path}`;
-      cookies.set({
-        url,
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly,
-        expirationDate: Math.floor(new Date().getTime() / 1000) + 1209600,
-      }).catch(() => { });
+    if (
+      cookie.domain.indexOf(PANDASUITE_HOST) !== -1 &&
+      cookie.session &&
+      !removed
+    ) {
+      const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain}${
+        cookie.path
+      }`;
+      cookies
+        .set({
+          url,
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          secure: cookie.secure,
+          httpOnly: cookie.httpOnly,
+          expirationDate: Math.floor(new Date().getTime() / 1000) + 1209600,
+        })
+        .catch(() => {});
     }
   });
 
