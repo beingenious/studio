@@ -621,7 +621,8 @@ const createPublicationWindow = async (url = null) => {
     (details, callback) => {
       if (
         /\.pdf(\?([^/]+)?)?$/i.test(details.url) &&
-        !(details.referrer === '' && details.resourceType === 'xhr')
+        !(details.referrer === '' && details.resourceType === 'xhr') &&
+        details.url.indexOf('no_redirect') === -1
       ) {
         const matches = details.url.match(
           RegExp(/([^:]+:\/\/)([^/]+)(\/[^/]+\/[^?]+)/),
