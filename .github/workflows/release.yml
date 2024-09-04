@@ -27,6 +27,6 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: '18'
-      - run: brew install xz rpm
+      - run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xz rpm
       - run: npm install
       - run: npm run dist
