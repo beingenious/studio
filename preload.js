@@ -1,6 +1,8 @@
 const { ipcRenderer } = require('electron');
 
 process.once('loaded', () => {
+  window.forceIsElectron = true;
+
   window.addEventListener('message', (event) => {
     const message = event.data;
 

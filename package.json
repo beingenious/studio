@@ -1,7 +1,7 @@
 {
   "name": "pandasuite-studio",
   "productName": "PandaSuite Studio",
-  "version": "1.7.4",
+  "version": "1.7.4-gdm",
   "description": "The best studio ever",
   "license": "MIT",
   "repository": "beingenious/studio",
@@ -18,7 +18,7 @@
     "pack": "electron-builder --dir",
     "dist-windows": "electron-builder --windows --x64 --ia32",
     "dist-mac": "electron-builder --macos --x64",
-    "dist-linux": "electron-builder --linux --x64 --ia32",
+    "dist-linux": "electron-builder --linux --x64",
     "dist": "npm run dist-windows && npm run dist-mac && npm run dist-linux",
     "release": "np"
   },
@@ -93,8 +93,6 @@
     },
     "linux": {
       "target": [
-        "pacman",
-        "rpm",
         "deb"
       ],
       "category": "Network;Publishing",

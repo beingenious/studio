@@ -10,7 +10,7 @@ const {
   screen,
 } = require('electron');
 const path = require('path');
-const { autoUpdater } = require('electron-updater');
+// const { autoUpdater } = require('electron-updater');
 const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
@@ -42,6 +42,18 @@ debug();
 contextMenu();
 setupFlashPlayer();
 
+app.commandLine.appendSwitch('auth-server-whitelist', '*.krb.gendarmerie.fr');
+app.commandLine.appendSwitch('auth-negotiate-delegate-whitelist', '*.krb.gendarmerie.fr');
+app.commandLine.appendSwitch('proxy-pac-url', 'http://portail.gendarmerie.fr/scripts/proxy2.js');
+app.commandLine.appendSwitch('ignore-certificate-errors');
+
+app.userAgentFallback = 'Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0';
+
+app.commandLine.appendSwitch(
+  'disable-features',
+  'HardwareMediaKeyHandling,MediaSessionService,CrossOriginOpenerPolicy',
+);
+
 const PANDASUITE_HOST = is.development
   ? 'dev.pandasuite.com'
   : 'pandasuite.com';
@@ -58,14 +70,14 @@ const ELECTRON_MENU_HEIGHT = 45;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
-if (!is.development) {
-  const FOUR_HOURS = 1000 * 60 * 60 * 4;
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
-  }, FOUR_HOURS);
+// if (!is.development) {
+//   const FOUR_HOURS = 1000 * 60 * 60 * 4;
+//   setInterval(() => {
+//     autoUpdater.checkForUpdates().catch(() => {});
+//   }, FOUR_HOURS);
 
-  autoUpdater.checkForUpdates().catch(() => {});
-}
+//   autoUpdater.checkForUpdates().catch(() => {});
+// }
 
 const publicationsBrowserView = {};
 const garbageBrowserView = {};
