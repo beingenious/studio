@@ -472,6 +472,24 @@ const createPublicationWindow = async (url = null) => {
     removeBrowserView(tabUrl);
   });
 
+  ipcMain.on('navigateToHomeTab', (event, { url: tabUrl, homeTabBaseUrl }) => {
+    const homeBrowserView = publicationsBrowserView[homeTabBaseUrl];
+
+    if (homeBrowserView) {
+      resumePublicationWindow();
+      studioOnSelectedTab({ url: homeTabBaseUrl });
+
+      if (homeBrowserView && homeBrowserView.webContents) {
+        homeBrowserView.webContents.executeJavaScript(
+          `window.pushURLFromElectron && window.pushURLFromElectron(${JSON.stringify(
+            tabUrl,
+          )});`,
+          true,
+        );
+      }
+    }
+  });
+
   ipcMain.on('triggerFineUploaderLinux', (event, data) => {
     const currentWindow =
       focusedWindow || BrowserWindow.getFocusedWindow() || win;

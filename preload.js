@@ -13,6 +13,7 @@ process.once('loaded', () => {
         'createOrSelectTab',
         'removeTab',
         'updateTab',
+        'navigateToHomeTab',
       ].indexOf(message.type) !== -1
     ) {
       ipcRenderer.send(message.type, message.data);
