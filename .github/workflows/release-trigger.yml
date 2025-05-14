@@ -1,7 +1,6 @@
 name: Trigger Docker Panda LB Update
 
 on:
-  workflow_dispatch:
   release:
     types: [published, unpublished]
 
