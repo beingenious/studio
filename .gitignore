@@ -5,3 +5,5 @@ yarn.lock
 /package-lock.json
 /.env
 .DS_Store
+.omx/
+.omc/
