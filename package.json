@@ -18,7 +18,7 @@
     "pack": "electron-builder --dir",
     "dist-windows": "electron-builder --windows --x64 --ia32",
     "dist-mac": "electron-builder --macos --x64",
-    "dist-linux": "electron-builder --linux --x64 --ia32",
+    "dist-linux": "electron-builder --linux --x64 --ia32 -c.productName=PandaSuite-Studio",
     "dist": "npm run dist-windows && npm run dist-mac && npm run dist-linux",
     "release": "np"
   },
@@ -98,6 +98,9 @@
         "deb"
       ],
       "category": "Network;Publishing",
+      "desktop": {
+        "Name": "PandaSuite Studio"
+      },
       "extraResources": [
         "./static/flash_player_ppapi/*.so",
         "./static/pdfjs/**/*"
