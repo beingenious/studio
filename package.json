@@ -1,7 +1,7 @@
 {
   "name": "pandasuite-studio",
   "productName": "PandaSuite Studio",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "description": "The best studio ever",
   "license": "MIT",
   "repository": "beingenious/studio",
@@ -115,5 +115,6 @@
       ],
       "sign": "scripts/sign/sign.js"
     }
-  }
+  },
+  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
 }
