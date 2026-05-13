@@ -6,7 +6,6 @@ on:
       - '*.*.*'
 
 env:
-  ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   APPLE_ID: ${{ secrets.APPLE_ID }}
   APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
@@ -24,11 +23,12 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
       - run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xz rpm
+      - run: echo "ELECTRON_BUILDER_CACHE=$RUNNER_TEMP/electron-builder-cache" >> "$GITHUB_ENV"
       - run: npm install
       - run: node scripts/ci/patch-fpm-rpm-buildroot.js
       - run: npm run dist
