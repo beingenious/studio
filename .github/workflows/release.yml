@@ -6,6 +6,7 @@ on:
       - '*.*.*'
 
 env:
+  ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   APPLE_ID: ${{ secrets.APPLE_ID }}
   APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
@@ -29,4 +30,5 @@ jobs:
           node-version: '18'
       - run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xz rpm
       - run: npm install
+      - run: node scripts/ci/patch-fpm-rpm-buildroot.js
       - run: npm run dist
