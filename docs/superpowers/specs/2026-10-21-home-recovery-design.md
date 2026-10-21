@@ -1,0 +1,35 @@
+# Recover a blank Studio Home
+
+Mandate: beingenious/Panda.task#1066. User: « Oui, mets en place ces protections dans Electron et Bamboo, avec les logs pour identifier la cause si ça se reproduit, sans recharger les projets ouverts. l'action serait plutot juste \"Recharger\" ».
+
+## Evidence and limits
+One overnight incident: Home white, tabs/project usable, resize and tab switches ineffective, restart restored Home. Root cause and frequency are unknown. Electron 11 index.js retains a BrowserView per tab with no failure recovery. Bamboo root currently has no boundary; PR855 (unmerged) is adopted. GET_SESSION is a local query, not evidence of a stalled network request. No authentication changes.
+
+## Options
+A. Explicit Home-only recovery, native failure prompt, React fallback and bounded local diagnostics. B. Automatically reload Home on wake/failure (unnecessary interruption and retry-loop risk). C. Diagnostics only (does not satisfy recovery). Choose A after blind approach advice; no automatic reload on wake, and no app restart.
+
+## Electron
+Capture immutable Home role at view creation only when the tab's `home` flag and exact configured dashboard-root URL both match. Never infer it from a current URL or accept a project view as Home after navigation. Keep recovery attached to that BrowserView reference, not its mutable map key. Shell, projects and auxiliary views are never recovery targets.
+
+Add a native View > Recharger / Reload menu action, enabled only when the selected view is Home. It remains available even when the Home renderer cannot execute JavaScript or no failure event was detected. It reloads that view alone. Never reload BrowserWindow.webContents, broadcast reload, destroy projects, clear session/cache or restart app.
+
+Attach events before loadURL: renderer exit (reason/exit code), main-frame load failure (ignore -3 aborted navigation and subframes), unresponsive/responsive, load start/finish. Offer one native failure dialog per Home failure episode with Recharger and Cancel. Avoid interrupting project work: log background failures and offer recovery when that Home is selected. A canceled dialog stays dismissed until another failure episode or explicit menu action. Check liveness/selection after async dialog completion. Reload crashed but live webContents using reload; no automatic retry loop. If Home was destroyed, fail safely and log rather than touch any other view.
+
+Persist capped, rotated JSON-line logs under app.getPath('userData')/logs/home-recovery.log (one previous file). Include UTC timestamp, app/Electron/Chrome version, view id, event, failure reason/code, duration where available, reload requested, document load finished/failed (never equate load completion with confirmed visual recovery), plus suspend/resume times. Whitelist fields and bounded strings; no full URLs, query/hash, project labels/IDs, auth tokens, raw error messages or page contents. Filesystem/reporting failures must not block recovery. Log only structural React failure metadata received via new Home-specific IPC, accepting sender only when its webContents matches the retained Home role. Old Bamboo and old Electron continue working independently; no mandatory response protocol.
+
+## Bamboo
+Adopt PR855's reusable boundary, updated to current source. Scope the recovery boundary to both Home entry paths: the App.jsx root route session guard/redirect and the Electron dashboard catch-all (including its session guard), with a self-contained FR/EN fallback that does not depend on Apollo/router surviving. Use the existing react-intl catalogs, with translated strings supplied from outside the boundary (the Intl provider remains above Home); do not add an inline bilingual helper. Button is exactly Recharger / Reload and reloads only this Home document. Remove the draft's unrelated Studio/new-project/root wrappers rather than expanding recovery into project/shell contexts. Failures above this boundary and arbitrary async errors remain outside its catch: do not claim complete blank-screen detection.
+
+Report original React Error and component stack/boundary label through existing Analytics.captureError extended with optional properties (preserve existing callers, admin exclusions, AS3 exception conversion and throttling). Always write a concise local console diagnostic; send only whitelisted structural metadata through window.postMessage({type:'homeRenderError',data:{...}}) to new Electron preload IPC. Diagnostics errors must not throw from componentDidCatch. No new data collection outside existing analytics consent/account rules. Old Electron ignores this optional message. Root startup/import crashes retain the manual native menu (native events cannot detect every JavaScript failure); no claim they are automatically caught.
+
+## Verification and success
+Regression tests: renderer exit and failed main-frame load offer recovery; subframe/abort ignored; background failure deferred; duplicate events/dismiss/retry; project/shell identity and load counts unchanged; invalid IPC/project sender rejected; logs rotate, redact unknown fields, survive restart, and contain write failure; selected native menu recovers unexplained blank Home. Bamboo tests healthy rendering, FR/EN fallback, throwing diagnostics, React Error/metadata reporting, reload only on explicit button, route isolation. Use existing Vitest in Bamboo; Node built-in assert/EventEmitter one-off scripts in Electron (no new framework). Run Electron lint and Bamboo full tests/build/format; run UI failure injection/preview where possible and state overnight production reproduction unavailable. Do not merge or deploy.
+
+## Challenge log
+Approach advisor: fresh subagent ran, chose explicit Home-only recovery and an always-available native menu for failures with no events; accepted. Codex companion approach review: ran; accepted immutable Home identity, native recovery menu, no wake reload, captureError integration and main-process persistence. These match approach A. No forced renderer crash: Electron may share a renderer with project views.
+
+Spec shape reviewer: fresh subagent ran, no material findings.
+Codex spec reviewer ran: minor diagnostic-claim finding accepted. Startup JavaScript failures retain manual recovery but are not guaranteed to produce native failure events; load completion is navigation, not proof of successful visual recovery. Clarification only, no behavior added or removed. Shape review and correctness challenge converged on this scope.
+
+Plan correctness review exposed two omissions: accepted initial Home root redirect/guard coverage (same Home contract, no auth behavior change) and explicit responsiveness-event tests (already required by spec). Both artifacts updated and re-challenged.
+Round2 revised-spec challenge: Codex correctness reviewer and shape subagent ran, no material findings. Gate converged.
