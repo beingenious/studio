@@ -226,6 +226,12 @@ module.exports = function initMenu(options) {
       id: 'view',
       submenu: [
         {
+          label: __('Reload'),
+          id: 'reloadHome',
+          enabled: !!options.reloadHomeEnabled,
+          click: () => options.reloadHome(),
+        },
+        {
           role: 'togglefullscreen',
           label: __('menu.togglefullscreen'),
           id: 'togglefullscreen',

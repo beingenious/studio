@@ -8,6 +8,7 @@ const {
   session,
   BrowserView,
   screen,
+  powerMonitor,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -28,6 +29,8 @@ const find = require('lodash/find');
 const map = require('lodash/map');
 
 const menu = require('./menu');
+const attachHomeRecovery = require('./home-recovery');
+const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale } = require('./i18n/i18n');
 
@@ -51,6 +54,7 @@ const PANDASUITE_AUTHORING_PATH = is.development
 
 const PANDASTUDIO_SCHEME = 'pandastudio';
 const PANDASTUDIO_START_URL = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`;
+const PANDASTUDIO_HOME_URL = `https://${PANDASUITE_HOST}/dashboard/`;
 const PDFJS_SCHEME = 'pdf';
 
 const ELECTRON_MENU_HEIGHT = 45;
@@ -71,9 +75,41 @@ const publicationsBrowserView = {};
 const garbageBrowserView = {};
 const publicationsMenuItems = {};
 let focusBrowserView = null;
+let focusedWindow = null;
+const homeRecovery = new WeakMap();
+const homeSenders = new WeakMap();
+const viewWindows = new WeakMap();
+let homeLog;
+const logHome = (event, data) => {
+  if (!homeLog) {
+    homeLog = createHomeRecoveryLog({
+      file: path.join(app.getPath('userData'), 'logs', 'home-recovery.log'),
+      versions: {
+        app: app.getVersion(),
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+      },
+    });
+  }
+  homeLog(event, data);
+};
+const selectedHome = () => {
+  if (!focusBrowserView || focusBrowserView.webContents.isDestroyed()) return null;
+  const win = viewWindows.get(focusBrowserView);
+  if (!win || win.isDestroyed() || win !== focusedWindow) return null;
+  return homeRecovery.get(focusBrowserView);
+};
+const updateHomeMenu = () => {
+  const applicationMenu = Menu.getApplicationMenu();
+  const item = applicationMenu && applicationMenu.getMenuItemById('reloadHome');
+  if (item) item.enabled = !!selectedHome();
+};
+ipcMain.on('homeRenderError', (event, data) => {
+  const controller = homeSenders.get(event.sender);
+  if (controller) controller.reportReactError(event.sender, data);
+});
 
 let publicationsWindow = {};
-let focusedWindow = null;
 let deeplinkingUrl;
 
 function schemeToUrl(url) {
@@ -187,6 +223,7 @@ const setDocumentEdited = (url, enabled) => {
 };
 
 const updateMenuItem = (url, data) => {
+  if (data && data.id === 'reloadHome') return;
   if (data && data.id) {
     const applicationMenu = Menu.getApplicationMenu();
 
@@ -254,6 +291,14 @@ const removeBrowserView = (url) => {
   const view = publicationsBrowserView[url];
 
   if (view) {
+    const controller = homeRecovery.get(view);
+    if (controller) {
+      controller.dispose();
+      homeRecovery.delete(view);
+      homeSenders.delete(view.webContents);
+    }
+    if (focusBrowserView === view) focusBrowserView = null;
+    updateHomeMenu();
     currentWindow.removeBrowserView(view);
     garbageBrowserView[url] = view;
     delete publicationsBrowserView[url];
@@ -278,7 +323,7 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
-const createOrSelectBrowserView = ({ url }, win) => {
+const createOrSelectBrowserView = ({ url, home }, win) => {
   const currentWindow =
     focusedWindow || BrowserWindow.getFocusedWindow() || win;
   const contentBounds = currentWindow.getContentBounds();
@@ -301,7 +346,29 @@ const createOrSelectBrowserView = ({ url }, win) => {
     publicationsBrowserView[url] = view;
     currentWindow.addBrowserView(view);
 
-    view.webContents.loadURL(url);
+    viewWindows.set(view, currentWindow);
+    if (home === true && url === PANDASTUDIO_HOME_URL) {
+      const homeView = view;
+      const controller = attachHomeRecovery({
+        view: homeView,
+        window: currentWindow,
+        isSelected: () => focusBrowserView === homeView && focusedWindow === currentWindow,
+        showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+        translate: __,
+        log: logHome,
+      });
+      homeRecovery.set(homeView, controller);
+      homeSenders.set(homeView.webContents, controller);
+      homeView.webContents.once('destroyed', () => {
+        controller.dispose();
+        homeRecovery.delete(homeView);
+        homeSenders.delete(homeView.webContents);
+        updateHomeMenu();
+      });
+    }
+    const loadPromise = view.webContents.loadURL(url);
+    const controller = homeRecovery.get(view);
+    if (controller) loadPromise.catch((error) => controller.loadRejected(error));
     if (is.development) {
       view.webContents.openDevTools({ mode: 'undocked' });
     }
@@ -370,12 +437,17 @@ const createOrSelectBrowserView = ({ url }, win) => {
 
   focusBrowserView = view;
   currentWindow.setTopBrowserView(view);
+  updateHomeMenu();
+  const controller = homeRecovery.get(view);
+  if (controller) controller.selected();
 
   view.webContents.focus();
-  view.webContents.executeJavaScript(
+  const selectionScript = view.webContents.executeJavaScript(
     'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
     true,
   );
+
+  if (controller) selectionScript.catch(() => logHome('selection-script-failed'));
 
   each(garbageBrowserView, (v, k) => {
     v.webContents.destroy();
@@ -555,6 +627,9 @@ const createPublicationWindow = async (url = null) => {
 
   win.on('focus', () => {
     focusedWindow = win;
+    updateHomeMenu();
+    const controller = selectedHome();
+    if (controller) controller.selected();
     if (focusBrowserView) {
       focusBrowserView.webContents.focus();
     }
@@ -565,6 +640,18 @@ const createPublicationWindow = async (url = null) => {
   });
 
   win.on('closed', () => {
+    each(publicationsBrowserView, (view, key) => {
+      if (viewWindows.get(view) === win) {
+        const controller = homeRecovery.get(view);
+        if (controller) controller.dispose();
+        homeRecovery.delete(view);
+        homeSenders.delete(view.webContents);
+        if (focusBrowserView === view) focusBrowserView = null;
+        delete publicationsBrowserView[key];
+      }
+    });
+    if (focusedWindow === win) focusedWindow = null;
+    updateHomeMenu();
     removePublicationWindow(win);
   });
 
@@ -730,12 +817,20 @@ const createMenu = () => {
         return false;
       },
       studioOnMenuItemUpdate,
+      reloadHomeEnabled: !!selectedHome(),
+      reloadHome: () => {
+        const controller = selectedHome();
+        if (controller) controller.reload();
+      },
     }),
   );
 };
 
 (async () => {
   await app.whenReady();
+  logHome('startup');
+  powerMonitor.on('suspend', () => logHome('suspend'));
+  powerMonitor.on('resume', () => logHome('resume'));
 
   // https://github.com/electron/electron/issues/9995
   const { cookies } = session.defaultSession;

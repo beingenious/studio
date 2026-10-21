@@ -34,5 +34,8 @@
   "menu.learn": "Apprendre",
   "menu.contactus": "Nous contacter",
   "menu.hire": "Besoin d'un expert ?",
-  "menu.bug": "Signaler un bug"
+  "menu.bug": "Signaler un bug",
+  "Reload": "Recharger",
+  "homeRecovery.title": "L’accueil ne répond plus",
+  "homeRecovery.message": "Vous pouvez recharger l’accueil. Vos projets ouverts restent en place."
 }

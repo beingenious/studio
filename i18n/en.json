@@ -34,5 +34,8 @@
   "menu.learn": "Learn",
   "menu.contactus": "Contact us",
   "menu.hire": "Hire an expert?",
-  "menu.bug": "Report a bug"
+  "menu.bug": "Report a bug",
+  "Reload": "Reload",
+  "homeRecovery.title": "Home is not responding",
+  "homeRecovery.message": "You can reload Home. Your open projects stay in place."
 }
