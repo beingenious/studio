@@ -9,6 +9,7 @@ const {
   BrowserView,
   screen,
   powerMonitor,
+  nativeTheme,
 } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
@@ -111,6 +112,14 @@ ipcMain.on('homeRenderError', (event, data) => {
 
 let publicationsWindow = {};
 let deeplinkingUrl;
+
+ipcMain.on('updateNativeTheme', (event, data) => {
+  if (!data || !['auto', 'light', 'dark'].includes(data.theme)) return;
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.webContents !== event.sender ||
+      event.sender.getURL() !== PANDASTUDIO_START_URL) return;
+  nativeTheme.themeSource = data.theme === 'auto' ? 'system' : data.theme;
+});
 
 function schemeToUrl(url) {
   return (
