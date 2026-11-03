@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to rebuild into its draft (e.g. v1.7.9)'
+        required: true
+        type: string
   push:
     tags:
       - '*.*.*'
@@ -24,10 +30,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xz rpm
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          expected_tag="v$(node -p "require('./package.json').version")"
+          test "$RELEASE_TAG" = "$expected_tag"
+          git log -1 --format='%H %s'
+      - name: Prepare packaging tools
+        run: |
+          for tool in xz rpm; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              HOMEBREW_NO_AUTO_UPDATE=1 brew install "$tool"
+            fi
+            "$tool" --version
+          done
       - run: echo "ELECTRON_BUILDER_CACHE=$RUNNER_TEMP/electron-builder-cache" >> "$GITHUB_ENV"
       - run: npm install
       - run: node scripts/ci/patch-fpm-rpm-buildroot.js
