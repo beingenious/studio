@@ -50,7 +50,11 @@ jobs:
             fi
             "$tool" --version
           done
-      - run: echo "ELECTRON_BUILDER_CACHE=$RUNNER_TEMP/electron-builder-cache" >> "$GITHUB_ENV"
+      - run: echo "ELECTRON_BUILDER_CACHE=$RUNNER_TEMP/electron-builder-cache-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - run: npm install
-      - run: node scripts/ci/patch-fpm-rpm-buildroot.js
+      - name: Prepare fpm
+        run: |
+          export SZA_PATH="$(node -p "require('7zip-bin').path7za")"
+          chmod +x "$SZA_PATH"
+          node scripts/ci/patch-fpm-rpm-buildroot.js
       - run: npm run dist
