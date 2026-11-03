@@ -56,11 +56,18 @@ const window = {
   setTopBrowserView() {},
   removeBrowserView() {},
 };
+const shellContents = { getURL: () => 'https://pandasuite.com/dashboard/electron/tabs/' };
+window.webContents = shellContents;
+const nativeTheme = { themeSource: 'system' };
 const electron = {
   app,
   ipcMain,
   BrowserView,
-  BrowserWindow: { getFocusedWindow: () => window },
+  BrowserWindow: {
+    getFocusedWindow: () => window,
+    fromWebContents: (contents) => (contents === shellContents ? window : null),
+  },
+  nativeTheme,
   Menu: {
     getApplicationMenu: () => menu,
     setApplicationMenu: (value) => { menu = value; },
@@ -98,6 +105,33 @@ vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
+assert.strictEqual(ipcMain.listenerCount('updateNativeTheme'), 1);
+['dark', 'light', 'auto'].forEach((theme) => {
+  ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme });
+  assert.strictEqual(nativeTheme.themeSource, theme === 'auto' ? 'system' : theme);
+});
+ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme: 'invalid' });
+ipcMain.emit('updateNativeTheme', { sender: shellContents }, null);
+ipcMain.emit('updateNativeTheme', { sender: { getURL: shellContents.getURL } }, { theme: 'dark' });
+assert.strictEqual(nativeTheme.themeSource, 'system', 'invalid or BrowserView messages cannot override native theme');
+shellContents.getURL = () => 'https://pandasuite.com/authoring/project';
+ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme: 'dark' });
+assert.strictEqual(nativeTheme.themeSource, 'system', 'only the tabs route controls native appearance');
+const preloadWindow = {};
+const sent = [];
+let onMessage;
+preloadWindow.addEventListener = (name, callback) => { onMessage = callback; };
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../preload.js'), 'utf8'), {
+  require: () => ({ ipcRenderer: { send: (...args) => sent.push(args) } }),
+  process: { once: (name, callback) => callback() },
+  window: preloadWindow,
+});
+const message = { type: 'updateNativeTheme', data: { theme: 'dark' } };
+onMessage({ source: {}, data: message });
+assert.strictEqual(sent.length, 0, 'iframe cannot send native appearance');
+onMessage({ source: preloadWindow, data: message });
+assert.strictEqual(sent.length, 1, 'own-window preference reaches main');
+assert.strictEqual(sent[0][0], 'updateNativeTheme');
 api.setFocusedWindow(window);
 api.createMenu();
 api.createOrSelectBrowserView({ url: 'https://pandasuite.com/dashboard/' }, window);
