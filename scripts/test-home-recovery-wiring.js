@@ -150,10 +150,13 @@ api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project',
 const project = views[views.length - 1];
 assert.strictEqual(project.bounds.y, 45, 'tabs remain a content-coordinate row');
 assert.strictEqual(project.bounds.height, 755, 'native titlebar height is not added to content offset');
-assert.strictEqual(project.webContents.scripts.length, 0, 'native frames need no drag-region workaround');
+assert.strictEqual(project.webContents.scripts.length, 1, 'compact macOS retains its drag-region refresh');
 context.process.platform = 'linux';
 api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project' }, window);
-assert.strictEqual(project.webContents.scripts.length, 1, 'Linux retains its drag-region workaround');
+assert.strictEqual(project.webContents.scripts.length, 2, 'Linux retains its drag-region workaround');
+context.process.platform = 'win32';
+api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project' }, window);
+assert.strictEqual(project.webContents.scripts.length, 2, 'native Windows frames need no drag-region workaround');
 context.process.platform = 'darwin';
 assert.strictEqual(menu.item.enabled, false, 'flag cannot convert project to Home');
 menu.options.reloadHome();

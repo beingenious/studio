@@ -453,7 +453,7 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
   if (controller) controller.selected();
 
   view.webContents.focus();
-  if (process.platform === 'linux') {
+  if (process.platform !== 'win32') {
     const selectionScript = view.webContents.executeJavaScript(
       'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
       true,
