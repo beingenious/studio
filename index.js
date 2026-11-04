@@ -32,6 +32,7 @@ const map = require('lodash/map');
 const menu = require('./menu');
 const attachHomeRecovery = require('./home-recovery');
 const attachWindowLayout = require('./window-layout');
+const attachMacTitlebar = require('./macos-titlebar');
 const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale } = require('./i18n/i18n');
@@ -506,8 +507,9 @@ const createPublicationWindow = async (url = null) => {
     height: mainWindowState.height,
     minWidth: 800,
     minHeight: 600,
-    frame: !is.linux,
-    titleBarStyle: is.linux ? 'hiddenInset' : 'default',
+    frame: process.platform === 'win32',
+    titleBarStyle: { darwin: 'hidden', win32: 'default', linux: 'hiddenInset' }[process.platform],
+    ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 12, y: 31 } } : {}),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, './preload.js'),
@@ -521,6 +523,7 @@ const createPublicationWindow = async (url = null) => {
   });
 
   if (process.platform === 'win32') attachWindowLayout(win, ELECTRON_MENU_HEIGHT);
+  if (process.platform === 'darwin') attachMacTitlebar(win);
 
   if (is.development) {
     win.openDevTools({ mode: 'undocked' });

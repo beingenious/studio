@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const captureWindowOptions = require('./capture-window-options');
 const attachWindowLayout = require('../window-layout');
+const attachMacTitlebar = require('../macos-titlebar');
 
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'studio-window-frame-')));
 let win;
@@ -39,9 +40,10 @@ const dataPage = (name) => `data:text/html,${encodeURIComponent(
 
 app.whenReady().then(async () => {
   const options = await captureWindowOptions(process.platform);
-  assert.strictEqual(options.frame, true, 'this native smoke targets macOS/Windows');
+  assert.strictEqual(options.frame, process.platform === 'win32');
   win = new BrowserWindow({ ...options, show: true });
   if (process.platform === 'win32') attachWindowLayout(win, 45);
+  if (process.platform === 'darwin') attachMacTitlebar(win);
   win.webContents.on('render-process-gone', (event, details) => {
     console.error('Shell renderer exited', details);
   });
@@ -60,7 +62,8 @@ app.whenReady().then(async () => {
     x: 0, y: 45, width: content.width, height: content.height - 45,
   });
   project.setAutoResize({ width: true, height: true });
-  assert.strictEqual(await win.webContents.executeJavaScript('window.studioNativeWindowFrame'), true);
+  assert.strictEqual(await win.webContents.executeJavaScript('window.studioNativeWindowFrame'), process.platform === 'win32');
+  assert.strictEqual(await win.webContents.executeJavaScript('window.studioCompactTitlebar'), process.platform === 'darwin');
   const verify = async () => {
     const size = win.getContentBounds();
     const bounds = project.getBounds();

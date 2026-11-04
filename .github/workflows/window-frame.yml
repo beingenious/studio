@@ -5,6 +5,9 @@ on:
       - 'index.js'
       - 'preload.js'
       - 'window-layout.js'
+      - 'macos-titlebar.js'
+      - 'native/**'
+      - 'package.json'
       - 'scripts/**'
       - '.github/workflows/window-frame.yml'
   workflow_dispatch:
@@ -23,6 +26,7 @@ jobs:
       - run: npm test
       - run: node scripts/test-window-frame.js
       - run: node scripts/test-window-layout.js
+      - run: node scripts/test-macos-titlebar.js
       - run: node scripts/test-home-recovery.js
       - run: node scripts/test-home-recovery-wiring.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js
