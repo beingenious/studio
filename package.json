@@ -70,6 +70,13 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "category": "public.app-category.productivity",
       "darkModeSupport": true,
+      "files": [
+        "**/*",
+        "!native/*.{m,h}",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
+      ],
       "extraResources": [
         "./static/flash_player_ppapi/PepperFlashPlayer.plugin/**/*",
         "./static/pdfjs/**/*",
@@ -109,7 +116,10 @@
       "icon": "build/icon.png",
       "files": [
         "**/*",
-        "!native/**"
+        "!native/**",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
       ]
     },
     "win": {
@@ -121,16 +131,16 @@
       "sign": "scripts/sign/sign.js",
       "files": [
         "**/*",
-        "!native/**"
+        "!native/**",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
       ]
     },
     "beforePack": "./scripts/build-macos-titlebar.js",
+    "afterPack": "./scripts/check-package-files.js",
     "asarUnpack": [
       "native/*.node"
-    ],
-    "files": [
-      "**/*",
-      "!native/*.{m,h}"
     ]
   },
   "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"

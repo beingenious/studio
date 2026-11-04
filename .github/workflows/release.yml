@@ -52,6 +52,10 @@ jobs:
           done
       - run: echo "ELECTRON_BUILDER_CACHE=$RUNNER_TEMP/electron-builder-cache-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - run: npm install
+      - name: Validate package file boundaries
+        run: |
+          node scripts/test-package-files.js
+          node scripts/test-package-contents.js
       - name: Prepare fpm
         run: |
           export SZA_PATH="$(node -p "require('7zip-bin').path7za")"
