@@ -27,7 +27,8 @@ class BrowserView {
       reloads: 0,
       isDestroyed: () => false,
       focus() {},
-      executeJavaScript: () => Promise.resolve(),
+      scripts: [],
+      executeJavaScript: (script) => { contents.scripts.push(script); return Promise.resolve(); },
       loadURL: () => {
         contents.listenersBeforeLoad = contents.listenerCount('render-process-gone');
         if (failNextLoad) {
@@ -46,7 +47,7 @@ class BrowserView {
 
   setAutoResize() {}
 
-  setBounds() {}
+  setBounds(bounds) { this.bounds = bounds; }
 }
 let menu;
 const window = {
@@ -147,6 +148,16 @@ menu.options.reloadHome();
 assert.strictEqual(home.webContents.reloads, 1);
 api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project', home: true }, window);
 const project = views[views.length - 1];
+assert.strictEqual(project.bounds.y, 45, 'tabs remain a content-coordinate row');
+assert.strictEqual(project.bounds.height, 755, 'native titlebar height is not added to content offset');
+assert.strictEqual(project.webContents.scripts.length, 1, 'compact macOS retains its drag-region refresh');
+context.process.platform = 'linux';
+api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project' }, window);
+assert.strictEqual(project.webContents.scripts.length, 2, 'Linux retains its drag-region workaround');
+context.process.platform = 'win32';
+api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/project' }, window);
+assert.strictEqual(project.webContents.scripts.length, 2, 'native Windows frames need no drag-region workaround');
+context.process.platform = 'darwin';
 assert.strictEqual(menu.item.enabled, false, 'flag cannot convert project to Home');
 menu.options.reloadHome();
 assert.strictEqual(home.webContents.reloads, 1);

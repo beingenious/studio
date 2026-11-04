@@ -31,6 +31,8 @@ const map = require('lodash/map');
 
 const menu = require('./menu');
 const attachHomeRecovery = require('./home-recovery');
+const attachWindowLayout = require('./window-layout');
+const attachMacTitlebar = require('./macos-titlebar');
 const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale } = require('./i18n/i18n');
@@ -451,12 +453,14 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
   if (controller) controller.selected();
 
   view.webContents.focus();
-  const selectionScript = view.webContents.executeJavaScript(
-    'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
-    true,
-  );
+  if (process.platform !== 'win32') {
+    const selectionScript = view.webContents.executeJavaScript(
+      'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
+      true,
+    );
 
-  if (controller) selectionScript.catch(() => logHome('selection-script-failed'));
+    if (controller) selectionScript.catch(() => logHome('selection-script-failed'));
+  }
 
   each(garbageBrowserView, (v, k) => {
     v.webContents.destroy();
@@ -503,8 +507,9 @@ const createPublicationWindow = async (url = null) => {
     height: mainWindowState.height,
     minWidth: 800,
     minHeight: 600,
-    frame: false,
-    titleBarStyle: 'hiddenInset',
+    frame: process.platform === 'win32',
+    titleBarStyle: { darwin: 'hidden', win32: 'default', linux: 'hiddenInset' }[process.platform],
+    ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 12, y: 31 } } : {}),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, './preload.js'),
@@ -516,6 +521,9 @@ const createPublicationWindow = async (url = null) => {
       contextIsolation: false,
     },
   });
+
+  if (process.platform === 'win32') attachWindowLayout(win, ELECTRON_MENU_HEIGHT);
+  if (process.platform === 'darwin') attachMacTitlebar(win);
 
   if (is.development) {
     win.openDevTools({ mode: 'undocked' });

@@ -11,7 +11,7 @@
     "url": "https://pandasuite.com"
   },
   "scripts": {
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "node scripts/build-macos-titlebar.js && electron-builder install-app-deps",
     "lint": "eslint . --ext .js",
     "test": "npm run lint",
     "start": "electron .",
@@ -48,6 +48,7 @@
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-react": "^7.14.3",
     "eslint-plugin-react-hooks": "^1.7.0",
+    "node-api-headers": "1.9.0",
     "np": "^5.1.0"
   },
   "np": {
@@ -105,7 +106,11 @@
         "./static/flash_player_ppapi/*.so",
         "./static/pdfjs/**/*"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "files": [
+        "**/*",
+        "!native/**"
+      ]
     },
     "win": {
       "verifyUpdateCodeSignature": false,
@@ -113,8 +118,20 @@
         "./static/flash_player_ppapi/*.dll",
         "./static/pdfjs/**/*"
       ],
-      "sign": "scripts/sign/sign.js"
-    }
+      "sign": "scripts/sign/sign.js",
+      "files": [
+        "**/*",
+        "!native/**"
+      ]
+    },
+    "beforePack": "./scripts/build-macos-titlebar.js",
+    "asarUnpack": [
+      "native/*.node"
+    ],
+    "files": [
+      "**/*",
+      "!native/*.{m,h}"
+    ]
   },
   "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
 }

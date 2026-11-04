@@ -53,3 +53,22 @@ Run the optional isolated native smoke with
 Home recovery and shell/project preservation in real Electron, including an actual
 Home renderer crash when its process is separate from shell and project views.
 The original overnight blank Home is not reproduced by this smoke check.
+
+## Native Window Controls
+
+macOS keeps its native window buttons and project tabs in one 45px row. Empty
+caption areas use native window dragging and the system double-click preference.
+Windows retains its system title bar and controls. Linux keeps its existing layout.
+
+The hosted tab interface detects the read-only `studioNativeWindowFrame` and
+`studioCompactTitlebar` capabilities. Release its compatible version before the
+Windows desktop binary to avoid duplicate controls.
+
+macOS builds need Xcode command-line tools with an Apple Silicon SDK. Installation
+and packaging build the macOS-only native module for Intel and Apple Silicon;
+Windows and Linux skip it. Electron remains unchanged.
+
+Checks: `node scripts/test-window-frame.js`, `node scripts/test-window-layout.js`,
+`node scripts/test-macos-titlebar.js` and `npm test`. On macOS or Windows, run
+`npx --no-install electron scripts/test-window-frame-electron.js` for isolated
+maximize/restore, minimize/restore and fullscreen tests with retained content.
