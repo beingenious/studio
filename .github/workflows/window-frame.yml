@@ -1,0 +1,28 @@
+name: Windows native frame
+on:
+  pull_request:
+    paths:
+      - 'index.js'
+      - 'preload.js'
+      - 'window-layout.js'
+      - 'scripts/**'
+      - '.github/workflows/window-frame.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-window:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm install
+      - run: npm test
+      - run: node scripts/test-window-frame.js
+      - run: node scripts/test-window-layout.js
+      - run: node scripts/test-home-recovery.js
+      - run: node scripts/test-home-recovery-wiring.js
+      - run: npx --no-install electron scripts/test-window-frame-electron.js

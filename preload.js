@@ -1,6 +1,9 @@
 const { ipcRenderer } = require('electron');
 
 process.once('loaded', () => {
+  Object.defineProperty(window, 'studioNativeWindowFrame', {
+    value: process.platform === 'darwin' || process.platform === 'win32',
+  });
   window.addEventListener('message', (event) => {
     const message = event.data;
     if (!message || typeof message !== 'object') return;
