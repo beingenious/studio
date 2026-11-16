@@ -34,4 +34,5 @@ jobs:
       - run: node scripts/test-home-recovery.js
       - run: node scripts/test-home-recovery-wiring.js
       - run: node scripts/test-move-to-applications.js
+      - run: node scripts/test-startup-wiring.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js
