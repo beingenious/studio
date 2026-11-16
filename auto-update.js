@@ -6,7 +6,7 @@ const SQUIRREL_FOLDER = /\/update\.[^/]+\//g;
 // Checks for updates at startup and every four hours where the installation can update
 // itself. Download failures are reported as handled errors; check failures (offline,
 // proxy, DNS) stay silent and are retried at the next check.
-module.exports = (autoUpdater, report) => {
+module.exports = function autoUpdate(autoUpdater, report) {
   if (!autoUpdater.isUpdaterActive()) return null;
 
   if (autoUpdater.nativeUpdater) {
