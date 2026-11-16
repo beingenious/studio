@@ -78,6 +78,25 @@ check('Linux path under the home folder', () => {
     [['~/.config/x.js', false]]);
 });
 
+check('anonymous frames under paths that contain " ("', () => {
+  const app = '/Users/jane/Applications (Work)/PandaSuite Studio.app/Contents/Resources/app.asar';
+  const list = buildExceptionList(errorWithStack('boom', [`${app}/index.js:1:8`]),
+    rejection, { appPath: app, home: '/Users/jane' });
+  assert.deepStrictEqual(
+    framesOf(list).map((frame) => [frame.filename, frame.function, frame.in_app]),
+    [['index.js', '?', true]],
+  );
+  const windows = buildExceptionList(errorWithStack('boom', [
+    'C:\\Users\\John (Work)\\AppData\\Local\\Programs\\pandasuite-studio\\resources\\app.asar\\index.js:10:5',
+  ]), rejection, {
+    appPath: 'C:\\Users\\John (Work)\\AppData\\Local\\Programs\\pandasuite-studio\\resources\\app.asar',
+    home: 'C:\\Users\\John (Work)',
+  });
+  assert.deepStrictEqual(framesOf(windows).map((frame) => [frame.filename, frame.in_app]),
+    [['index.js', true]]);
+  assert(!JSON.stringify(list).includes('jane') && !JSON.stringify(windows).includes('John'));
+});
+
 check('message lines are never read as frames', () => {
   const list = buildExceptionList(errorWithStack('first line\ncache-control: public, max-age=0 at edge',
     [`run (${MAC_APP}/index.js:1:1)`]), rejection, mac);

@@ -5,6 +5,8 @@
 const FRAME_LIMIT = 50;
 const UNKNOWN_FUNCTION = '?';
 const FRAME_LINE = /^\s*at (?:async )?(?:(.+?)\s+\()?(?:(.+):(\d+):(\d+)?|([^)]+))\)?/;
+// A frame without a function name is the location alone, which may contain " (".
+const LOCATION_LINE = /^\s*at (?:async )?(.+):(\d+):(\d+)\s*$/;
 const URL_QUERY = /(https?:\/\/[^\s?#"'<>]+)[?#][^\s"'<>]*/g;
 
 const attempt = (read, fallback) => {
@@ -41,8 +43,14 @@ const functionName = (name) => {
   return method === '<anonymous>' ? `${object}.${UNKNOWN_FUNCTION}` : result;
 };
 
+const matchFrame = (line) => {
+  if (line.length > 1024) return null;
+  const location = !/\)\s*$/.test(line) && line.match(LOCATION_LINE);
+  return location ? [line, undefined, ...location.slice(1)] : line.match(FRAME_LINE);
+};
+
 const parseFrame = (line, { underApp, underHome }) => {
-  const match = line.length <= 1024 && line.match(FRAME_LINE);
+  const match = matchFrame(line);
   if (!match) return null;
   const native = match[5] === 'native';
   const raw = match[2] || (!native && match[5]) || undefined;
