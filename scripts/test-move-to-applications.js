@@ -8,7 +8,7 @@ Module._load = function stub(request, ...args) {
   if (request === 'electron') return { app: { getLocale: () => '' } };
   return load.call(this, request, ...args);
 };
-const { __, translateFor } = require('../i18n/i18n');
+const { __, changeLocale, translateFor } = require('../i18n/i18n');
 const moveToApplications = require('../move-to-applications');
 const en = require('../i18n/en.json');
 const fr = require('../i18n/fr.json');
@@ -156,7 +156,17 @@ async function run() {
     assert.strictEqual(translateFor('fr')('moveToApplications.later'), 'Plus tard');
     assert.strictEqual(translateFor('en-US')('moveToApplications.later'), 'Not Now');
     assert.strictEqual(translateFor('')('moveToApplications.later'), 'Not Now');
-    assert.strictEqual(__('Leave'), en.Leave, 'the global language does not change');
+  });
+
+  await check('global language unchanged', () => {
+    // Check right after each translator, from both languages: a translator that switched the
+    // app's language would otherwise be hidden by the next one switching it back.
+    translateFor('fr')('moveToApplications.later');
+    assert.strictEqual(__('Leave'), en.Leave, 'a French translator leaves the app in English');
+    changeLocale('fr-FR');
+    translateFor('en-US')('moveToApplications.later');
+    assert.strictEqual(__('Leave'), fr.Leave, 'an English translator leaves the app in French');
+    changeLocale('en-US');
   });
 
   Object.defineProperty(process, 'platform', PLATFORM);

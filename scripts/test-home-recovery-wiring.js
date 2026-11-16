@@ -106,6 +106,27 @@ vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
+// A second instance quits: it must stop before startup builds a prompt, menu or window.
+let secondInstanceReady = 0;
+const secondApp = new EventEmitter();
+Object.assign(secondApp, {
+  getPath: () => '/tmp',
+  getVersion: () => '1.7.8',
+  setAppUserModelId() {},
+  setAsDefaultProtocolClient() {},
+  requestSingleInstanceLock: () => false,
+  quit() {},
+  whenReady: () => {
+    secondInstanceReady += 1;
+    return new Promise(() => {});
+  },
+});
+const secondElectron = { ...electron, app: secondApp, ipcMain: new EventEmitter() };
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8'), {
+  ...context,
+  require: (name) => (name === 'electron' ? secondElectron : context.require(name)),
+});
+assert.strictEqual(secondInstanceReady, 0, 'a second instance stops before startup');
 assert.strictEqual(ipcMain.listenerCount('updateNativeTheme'), 1);
 ['dark', 'light', 'auto'].forEach((theme) => {
   ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme });
