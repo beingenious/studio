@@ -25,6 +25,7 @@ const fixture = async (platform, options = {}) => {
     : path.join(output, 'resources');
   ['package.json', 'index.js', 'preload.js', 'macos-titlebar.js', 'window-layout.js',
     'home-recovery.js', 'home-recovery-log.js', 'flash-player.js', 'menu.js',
+    'error-event.js', 'error-reporting.js',
     'i18n/i18n.js', 'i18n/en.json', 'i18n/fr.json',
     'node_modules/example/dist/index.js'].forEach((name) => write(source, name));
   if (platform === 'darwin' || options.foreignNative) write(source, 'native/macos-titlebar.node');
