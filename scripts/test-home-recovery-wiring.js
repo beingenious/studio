@@ -7,6 +7,10 @@ const { EventEmitter } = require('events');
 
 const ipcMain = new EventEmitter();
 const logged = [];
+let started = 0;
+const autoUpdater = { checkForUpdates: () => Promise.resolve() };
+const captureException = () => {};
+const autoUpdates = [];
 const app = new EventEmitter();
 Object.assign(app, {
   getPath: () => '/tmp',
@@ -78,10 +82,9 @@ const context = {
   require(name) {
     if (name === 'electron') return electron;
     if (name === 'electron-util') return { is: { development: false } };
-    if (name === 'electron-updater') {
-      return { autoUpdater: { checkForUpdates: () => Promise.resolve() } };
-    }
-    if (name === '@bugsnag/js') return { start() {} };
+    if (name === 'electron-updater') return { autoUpdater };
+    if (name === './error-reporting') return { start() { started += 1; }, captureException };
+    if (name === './auto-update') return (...args) => autoUpdates.push(args);
     if (name === './flash-player') return { setupFlashPlayer() {} };
     if (name === './i18n/i18n') return { __: (key) => key };
     if (name === './menu') {
@@ -106,6 +109,10 @@ vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
+assert.strictEqual(started, 1, 'error reporting starts once');
+assert.strictEqual(autoUpdates.length, 1, 'auto-update starts once');
+assert.strictEqual(autoUpdates[0][0], autoUpdater, 'auto-update gets the updater');
+assert.strictEqual(autoUpdates[0][1], captureException, 'auto-update reports through error reporting');
 assert.strictEqual(ipcMain.listenerCount('updateNativeTheme'), 1);
 ['dark', 'light', 'auto'].forEach((theme) => {
   ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme });

@@ -22,8 +22,6 @@ const { download } = require('electron-dl');
 const serve = require('electron-serve');
 const windowStateKeeper = require('electron-window-state');
 
-const Bugsnag = require('@bugsnag/js');
-
 const values = require('lodash/values');
 const omitBy = require('lodash/omitBy');
 const each = require('lodash/each');
@@ -38,15 +36,13 @@ const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale, translateFor } = require('./i18n/i18n');
 const config = require('./config');
+const errorReporting = require('./error-reporting');
+const autoUpdate = require('./auto-update');
 const moveToApplications = require('./move-to-applications');
 
-Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
+errorReporting.start();
 
-unhandled({
-  reportButton: (error) => {
-    Bugsnag.notify(error);
-  },
-});
+unhandled();
 debug();
 contextMenu();
 setupFlashPlayer();
@@ -68,14 +64,7 @@ const ELECTRON_MENU_HEIGHT = 45;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
-if (!is.development) {
-  const FOUR_HOURS = 1000 * 60 * 60 * 4;
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
-  }, FOUR_HOURS);
-
-  autoUpdater.checkForUpdates().catch(() => {});
-}
+if (!is.development) autoUpdate(autoUpdater, errorReporting.captureException);
 
 const publicationsBrowserView = {};
 const garbageBrowserView = {};

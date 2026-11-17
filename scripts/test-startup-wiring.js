@@ -48,7 +48,8 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
     electron,
     'electron-util': { is: { development: false } },
     'electron-updater': { autoUpdater: { checkForUpdates: () => Promise.resolve() } },
-    '@bugsnag/js': { start() {} },
+    './error-reporting': { start() {}, captureException() {} },
+    './auto-update': () => null,
     './flash-player': { setupFlashPlayer() {} },
     './i18n/i18n': { __: (key) => key, changeLocale() {}, translateFor: (locale) => `translator:${locale}` },
     './move-to-applications': (args) => {
