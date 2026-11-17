@@ -1,6 +1,8 @@
 /* eslint-disable no-console, no-underscore-dangle, global-require */
 const assert = require('assert');
 const Module = require('module');
+const os = require('os');
+const path = require('path');
 
 // i18n.js reads the locale from Electron as soon as it loads.
 const load = Module._load;
@@ -17,6 +19,10 @@ const PLATFORM = Object.getOwnPropertyDescriptor(process, 'platform');
 const setPlatform = (value) => Object.defineProperty(process, 'platform', { ...PLATFORM, value });
 const BUNDLE = '/Volumes/PandaSuite Studio/PandaSuite Studio.app';
 const INSTALLED = '/Applications/PandaSuite Studio.app';
+const TRANSLOCATED = '/private/var/folders/vn/abc123/T/AppTranslocation/0F1E2D3C/d/PandaSuite Studio.app';
+const STAGING = '/var/folders/vn/abc123/T/studio-move-Xy12Z9';
+const COPY = `${STAGING}/PandaSuite Studio.app`;
+const failure = (message) => Object.assign(new Error(message), { code: 1 });
 const KEYS = ['message', 'detail', 'move', 'later', 'dontAsk', 'failedMessage', 'failedDetail', 'ok']
   .map((key) => `moveToApplications.${key}`);
 const t = translateFor('fr');
@@ -24,17 +30,27 @@ const t = translateFor('fr');
 const fixture = ({
   packaged = true, inApplications = false, writable = false, accessError = 'EROFS',
   installed = false, dontAsk = false, answer = { response: 1, checkboxChecked: false },
-  move = () => true,
+  bundle = BUNDLE, applicationsWritable = true, fail = {}, relaunched = true,
 } = {}) => {
-  const state = { locationChecks: 0, dialogs: [], stored: { 'moveToApplications.dontAsk': dontAsk } };
+  const state = {
+    locationChecks: 0,
+    dialogs: [],
+    stored: { 'moveToApplications.dontAsk': dontAsk },
+    calls: [],
+    reports: [],
+  };
   const app = {
     isPackaged: packaged,
-    getPath: (name) => (name === 'exe' ? `${BUNDLE}/Contents/MacOS/PandaSuite Studio` : ''),
+    getPath: (name) => (name === 'exe' ? `${bundle}/Contents/MacOS/PandaSuite Studio` : ''),
     isInApplicationsFolder: () => {
       state.locationChecks += 1;
       return inApplications;
     },
-    moveToApplicationsFolder: move,
+    relaunch: (options) => {
+      state.calls.push(['relaunch', options]);
+      return relaunched;
+    },
+    quit: () => state.calls.push(['quit']),
   };
   const dialog = {
     showMessageBox: (options) => {
@@ -48,16 +64,35 @@ const fixture = ({
   };
   const fs = {
     constants: { W_OK: 2 },
-    accessSync: (path) => {
-      if (path !== BUNDLE || writable) return;
-      throw Object.assign(new Error(accessError), { code: accessError });
+    accessSync: (file) => {
+      if (file === bundle && !writable) {
+        throw Object.assign(new Error(accessError), { code: accessError });
+      }
+      if (file === '/Applications' && !applicationsWritable) {
+        throw Object.assign(new Error('EACCES'), { code: 'EACCES' });
+      }
     },
-    existsSync: (path) => installed && path === INSTALLED,
+    existsSync: (file) => installed && file === INSTALLED,
+    mkdtempSync: (prefix) => {
+      state.calls.push(['mkdtemp', prefix]);
+      if (fail.mkdtemp) throw fail.mkdtemp;
+      return STAGING;
+    },
+    renameSync: (from, to) => {
+      state.calls.push(['rename', from, to]);
+      if (fail.rename) throw fail.rename;
+    },
   };
+  const execFile = (file, args) => {
+    state.calls.push([file, ...args]);
+    const error = fail[path.posix.basename(file)];
+    return error ? Promise.reject(error) : Promise.resolve({ stdout: '', stderr: '' });
+  };
+  const report = (error) => state.reports.push(error);
   return {
     state,
     ask: () => moveToApplications({
-      app, dialog, store, translate: t, fs,
+      app, dialog, store, translate: t, fs, execFile, report,
     }),
   };
 };
@@ -119,33 +154,103 @@ async function run() {
     assert.strictEqual(state.stored['moveToApplications.dontAsk'], true);
   });
 
-  const moving = (move) => fixture({ answer: { response: 0, checkboxChecked: false }, move });
-  await check('moved', async () => {
-    assert.strictEqual(await moving(() => true).ask(), true);
+  const moving = (options) => fixture({
+    answer: { response: 0, checkboxChecked: false }, ...options,
   });
-  await check('move declined by Electron', async () => {
-    const { state, ask } = moving(() => false);
-    assert.strictEqual(await ask(), false);
-    assert.strictEqual(state.dialogs.length, 1, 'no failure dialog');
-  });
-  await check('authorization cancelled', async () => {
-    const { state, ask } = moving(() => {
-      throw new Error('User rejected the authorization request');
-    });
-    assert.strictEqual(await ask(), false);
-    assert.strictEqual(state.dialogs.length, 1, 'no failure dialog');
-  });
-  await check('move failed', async () => {
-    const { state, ask } = moving(() => {
-      throw new Error('Failed to copy current bundle to the applications folder');
-    });
-    assert.strictEqual(await ask(), false);
+  const PREFIX = path.posix.join(os.tmpdir(), 'studio-move-');
+  const DITTO = ['/usr/bin/ditto', BUNDLE, COPY];
+  const XATTR = ['/usr/bin/xattr', '-dr', 'com.apple.quarantine', COPY];
+  const RM = ['/bin/rm', '-rf', STAGING];
+  const failed = (state, calls) => {
+    assert.deepStrictEqual(state.calls, calls);
+    assert.strictEqual(state.dialogs.length, 2, 'failure dialog');
     assert.deepStrictEqual(state.dialogs[1], {
       type: 'warning',
       message: t('moveToApplications.failedMessage'),
       detail: t('moveToApplications.failedDetail'),
       buttons: [t('moveToApplications.ok')],
     });
+  };
+  const reported = (state) => {
+    assert.strictEqual(state.reports.length, 1, 'one report');
+    return state.reports[0].message;
+  };
+
+  await check('moved', async () => {
+    const { state, ask } = moving();
+    assert.strictEqual(await ask(), true);
+    assert.deepStrictEqual(state.calls, [
+      ['mkdtemp', PREFIX], DITTO, XATTR, ['rename', COPY, INSTALLED], RM,
+      ['relaunch', { execPath: '/usr/bin/open', args: [INSTALLED] }],
+      ['quit'],
+    ]);
+    assert.strictEqual(state.dialogs.length, 1, 'no failure dialog');
+    assert.strictEqual(state.reports.length, 0);
+  });
+  await check('moved, temporary folder left behind', async () => {
+    const { state, ask } = moving({ fail: { rm: failure('Command failed: /bin/rm') } });
+    assert.strictEqual(await ask(), true);
+    assert.strictEqual(state.reports.length, 0);
+  });
+  await check('Applications not writable', async () => {
+    const { state, ask } = moving({ applicationsWritable: false });
+    assert.strictEqual(await ask(), false);
+    failed(state, []);
+    assert.strictEqual(state.reports.length, 0, 'an expected situation is not reported');
+  });
+  await check('copy failed', async () => {
+    const { state, ask } = moving({
+      fail: { ditto: failure(`Command failed: /usr/bin/ditto ${BUNDLE} ${COPY}\nditto: ${COPY}: No space left on device`) },
+    });
+    assert.strictEqual(await ask(), false);
+    failed(state, [['mkdtemp', PREFIX], DITTO, RM]);
+    assert.strictEqual(reported(state),
+      'Command failed: /usr/bin/ditto <app> <staging>/PandaSuite Studio.app\nditto: <staging>/PandaSuite Studio.app: No space left on device');
+  });
+  await check('quarantine not removed', async () => {
+    const { state, ask } = moving({
+      fail: { xattr: failure(`Command failed: /usr/bin/xattr -dr com.apple.quarantine ${COPY}\nxattr: [Errno 13] Permission denied: '${COPY}/Contents/Info.plist'`) },
+    });
+    assert.strictEqual(await ask(), false);
+    failed(state, [['mkdtemp', PREFIX], DITTO, XATTR, RM]);
+    assert.strictEqual(reported(state),
+      'Command failed: /usr/bin/xattr -dr com.apple.quarantine <staging>/PandaSuite Studio.app\nxattr: [Errno 13] Permission denied: \'<staging>/PandaSuite Studio.app/Contents/Info.plist\'');
+  });
+  await check('rename failed', async () => {
+    const { state, ask } = moving({
+      fail: { rename: failure(`EACCES: permission denied, rename '${COPY}' -> '${INSTALLED}'`) },
+    });
+    assert.strictEqual(await ask(), false);
+    failed(state, [['mkdtemp', PREFIX], DITTO, XATTR, ['rename', COPY, INSTALLED], RM]);
+    assert.strictEqual(reported(state),
+      `EACCES: permission denied, rename '<staging>/PandaSuite Studio.app' -> '${INSTALLED}'`);
+  });
+  await check('temporary folder not created', async () => {
+    const { state, ask } = moving({
+      fail: { mkdtemp: failure(`ENOSPC: no space left on device, mkdtemp '${PREFIX}XXXXXX'`) },
+    });
+    assert.strictEqual(await ask(), false);
+    failed(state, [['mkdtemp', PREFIX]]);
+    assert.strictEqual(reported(state), "ENOSPC: no space left on device, mkdtemp '<staging>'");
+  });
+  await check('translocated copy failed', async () => {
+    const { state, ask } = moving({
+      bundle: TRANSLOCATED,
+      fail: { ditto: failure(`Command failed: /usr/bin/ditto ${TRANSLOCATED} ${COPY}`) },
+    });
+    assert.strictEqual(await ask(), false);
+    assert.deepStrictEqual(state.calls[1], ['/usr/bin/ditto', TRANSLOCATED, COPY]);
+    assert.strictEqual(reported(state),
+      'Command failed: /usr/bin/ditto <app> <staging>/PandaSuite Studio.app');
+  });
+  await check('relaunch failed', async () => {
+    const { state, ask } = moving({ relaunched: false });
+    assert.strictEqual(await ask(), false);
+    failed(state, [
+      ['mkdtemp', PREFIX], DITTO, XATTR, ['rename', COPY, INSTALLED], RM,
+      ['relaunch', { execPath: '/usr/bin/open', args: [INSTALLED] }],
+    ]);
+    assert(reported(state), 'reported with a message');
   });
 
   await check('texts', () => {

@@ -13,6 +13,8 @@ const {
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { autoUpdater } = require('electron-updater');
 const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
@@ -842,7 +844,13 @@ const createMenu = () => {
   await app.whenReady();
   // A deep link would be lost by the relaunch: ask at the next normal launch instead.
   if (!deeplinkingUrl && await moveToApplications({
-    app, dialog, store: config, translate: translateFor(app.getLocale()), fs,
+    app,
+    dialog,
+    store: config,
+    translate: translateFor(app.getLocale()),
+    fs,
+    execFile: promisify(execFile),
+    report: errorReporting.captureException,
   })) return;
   logHome('startup');
   powerMonitor.on('suspend', () => logHome('suspend'));

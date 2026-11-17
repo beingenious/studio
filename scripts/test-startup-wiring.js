@@ -8,6 +8,7 @@ const { EventEmitter } = require('events');
 const source = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
 // Window creation is where these checks stop: past it, startup needs the real Electron.
 const STOP = new Error('stop: window creation reached');
+const errorReporting = { start() {}, captureException() {} };
 
 const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
   const order = [];
@@ -48,7 +49,7 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
     electron,
     'electron-util': { is: { development: false } },
     'electron-updater': { autoUpdater: { checkForUpdates: () => Promise.resolve() } },
-    './error-reporting': { start() {}, captureException() {} },
+    './error-reporting': errorReporting,
     './auto-update': () => null,
     './flash-player': { setupFlashPlayer() {} },
     './i18n/i18n': { __: (key) => key, changeLocale() {}, translateFor: (locale) => `translator:${locale}` },
@@ -63,8 +64,10 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
   vm.runInNewContext(source, {
     require(name) {
       if (name in stubs) return stubs[name];
-      // eslint-disable-next-line global-require, import/no-dynamic-require
-      if (name.startsWith('lodash/') || name === 'path') return require(name);
+      if (name.startsWith('lodash/') || ['path', 'util', 'child_process'].includes(name)) {
+        // eslint-disable-next-line global-require, import/no-dynamic-require
+        return require(name);
+      }
       return () => {};
     },
     process: { platform: 'darwin', versions: {}, argv: [] },
@@ -100,6 +103,8 @@ async function run() {
     const { order, moveArgs } = await start({ moved: true });
     assert.deepStrictEqual(order, ['ready', 'move']);
     assert.strictEqual(moveArgs.translate, 'translator:fr-FR', 'asks in the system language');
+    assert.strictEqual(typeof moveArgs.execFile, 'function', 'runs the copy commands');
+    assert.strictEqual(moveArgs.report, errorReporting.captureException, 'reports failures');
   });
   await check('not moved: the question comes before the menu and window', async () => {
     const { order } = await start({ moved: false });
