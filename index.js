@@ -21,8 +21,6 @@ const { download } = require('electron-dl');
 const serve = require('electron-serve');
 const windowStateKeeper = require('electron-window-state');
 
-const Bugsnag = require('@bugsnag/js');
-
 const values = require('lodash/values');
 const omitBy = require('lodash/omitBy');
 const each = require('lodash/each');
@@ -36,14 +34,11 @@ const attachMacTitlebar = require('./macos-titlebar');
 const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
 const { __, changeLocale } = require('./i18n/i18n');
+const errorReporting = require('./error-reporting');
 
-Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
+errorReporting.start();
 
-unhandled({
-  reportButton: (error) => {
-    Bugsnag.notify(error);
-  },
-});
+unhandled();
 debug();
 contextMenu();
 setupFlashPlayer();

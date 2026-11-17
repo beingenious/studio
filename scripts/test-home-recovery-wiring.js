@@ -7,6 +7,7 @@ const { EventEmitter } = require('events');
 
 const ipcMain = new EventEmitter();
 const logged = [];
+let started = 0;
 const app = new EventEmitter();
 Object.assign(app, {
   getPath: () => '/tmp',
@@ -81,7 +82,7 @@ const context = {
     if (name === 'electron-updater') {
       return { autoUpdater: { checkForUpdates: () => Promise.resolve() } };
     }
-    if (name === '@bugsnag/js') return { start() {} };
+    if (name === './error-reporting') return { start() { started += 1; } };
     if (name === './flash-player') return { setupFlashPlayer() {} };
     if (name === './i18n/i18n') return { __: (key) => key };
     if (name === './menu') {
@@ -106,6 +107,7 @@ vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
+assert.strictEqual(started, 1, 'error reporting starts once');
 assert.strictEqual(ipcMain.listenerCount('updateNativeTheme'), 1);
 ['dark', 'light', 'auto'].forEach((theme) => {
   ipcMain.emit('updateNativeTheme', { sender: shellContents }, { theme });

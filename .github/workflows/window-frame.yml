@@ -6,6 +6,8 @@ on:
       - 'preload.js'
       - 'window-layout.js'
       - 'macos-titlebar.js'
+      - 'error-event.js'
+      - 'error-reporting.js'
       - 'native/**'
       - 'package.json'
       - 'scripts/**'
@@ -31,4 +33,6 @@ jobs:
       - run: node scripts/test-macos-titlebar.js
       - run: node scripts/test-home-recovery.js
       - run: node scripts/test-home-recovery-wiring.js
+      - run: node scripts/test-error-event.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js
+      - run: npx --no-install electron scripts/test-error-reporting-electron.js
