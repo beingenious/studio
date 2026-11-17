@@ -56,39 +56,48 @@ module.exports = async function moveToApplications({
   if (isWritable(fs, bundle)) return false;
   if (fs.existsSync(path.posix.join(APPLICATIONS, path.posix.basename(bundle)))) return false;
 
-  const { response, checkboxChecked } = await dialog.showMessageBox({
-    type: 'question',
-    message: translate('moveToApplications.message'),
-    detail: translate('moveToApplications.detail'),
-    buttons: [translate('moveToApplications.move'), translate('moveToApplications.later')],
-    defaultId: 0,
-    cancelId: 1,
-    checkboxLabel: translate('moveToApplications.dontAsk'),
-  });
-  if (response !== 0) {
-    if (checkboxChecked) store.set(DONT_ASK, true);
-    return false;
-  }
-
-  // Without the rights to write in Applications, a copy would be wasted: say how to move it.
-  if (isWritable(fs, APPLICATIONS)) {
-    try {
-      const installed = await install({ fs, execFile }, bundle);
-      // Runs once Studio has quit, so the copy can take the single-instance lock.
-      if (app.relaunch({ execPath: '/usr/bin/open', args: [installed] }) === false) {
-        throw new Error('Could not relaunch from Applications');
-      }
-      app.quit();
-      return true;
-    } catch (error) {
-      report(forReport(error, bundle));
+  // A link opened during the question or the copy would be lost by the relaunch: pass it on.
+  let link;
+  const onLink = (event, url) => { link = url; };
+  app.on('open-url', onLink);
+  try {
+    const { response, checkboxChecked } = await dialog.showMessageBox({
+      type: 'question',
+      message: translate('moveToApplications.message'),
+      detail: translate('moveToApplications.detail'),
+      buttons: [translate('moveToApplications.move'), translate('moveToApplications.later')],
+      defaultId: 0,
+      cancelId: 1,
+      checkboxLabel: translate('moveToApplications.dontAsk'),
+    });
+    if (response !== 0) {
+      if (checkboxChecked) store.set(DONT_ASK, true);
+      return false;
     }
+
+    // Without the rights to write in Applications, a copy would be wasted: say how to move it.
+    if (isWritable(fs, APPLICATIONS)) {
+      try {
+        const installed = await install({ fs, execFile }, bundle);
+        // Runs once Studio has quit, so the copy can take the single-instance lock.
+        const args = link ? ['-a', installed, link] : [installed];
+        if (app.relaunch({ execPath: '/usr/bin/open', args }) === false) {
+          throw new Error('Could not relaunch from Applications');
+        }
+        app.quit();
+        return true;
+      } catch (error) {
+        report(forReport(error, bundle));
+      }
+    }
+    await dialog.showMessageBox({
+      type: 'warning',
+      message: translate('moveToApplications.failedMessage'),
+      detail: translate('moveToApplications.failedDetail'),
+      buttons: [translate('moveToApplications.ok')],
+    });
+    return false;
+  } finally {
+    app.removeListener('open-url', onLink);
   }
-  await dialog.showMessageBox({
-    type: 'warning',
-    message: translate('moveToApplications.failedMessage'),
-    detail: translate('moveToApplications.failedDetail'),
-    buttons: [translate('moveToApplications.ok')],
-  });
-  return false;
 };

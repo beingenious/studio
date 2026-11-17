@@ -1,6 +1,7 @@
 /* eslint-disable no-console, no-underscore-dangle, global-require */
 const assert = require('assert');
 const Module = require('module');
+const { EventEmitter } = require('events');
 const os = require('os');
 const path = require('path');
 
@@ -30,7 +31,7 @@ const t = translateFor('fr');
 const fixture = ({
   packaged = true, inApplications = false, writable = false, accessError = 'EROFS',
   installed = false, dontAsk = false, answer = { response: 1, checkboxChecked: false },
-  bundle = BUNDLE, applicationsWritable = true, fail = {}, relaunched = true,
+  bundle = BUNDLE, applicationsWritable = true, fail = {}, relaunched = true, linkDuringCopy,
 } = {}) => {
   const state = {
     locationChecks: 0,
@@ -39,7 +40,7 @@ const fixture = ({
     calls: [],
     reports: [],
   };
-  const app = {
+  const app = Object.assign(new EventEmitter(), {
     isPackaged: packaged,
     getPath: (name) => (name === 'exe' ? `${bundle}/Contents/MacOS/PandaSuite Studio` : ''),
     isInApplicationsFolder: () => {
@@ -51,7 +52,7 @@ const fixture = ({
       return relaunched;
     },
     quit: () => state.calls.push(['quit']),
-  };
+  });
   const dialog = {
     showMessageBox: (options) => {
       state.dialogs.push(options);
@@ -85,12 +86,14 @@ const fixture = ({
   };
   const execFile = (file, args) => {
     state.calls.push([file, ...args]);
+    if (linkDuringCopy && file === '/usr/bin/ditto') app.emit('open-url', {}, linkDuringCopy);
     const error = fail[path.posix.basename(file)];
     return error ? Promise.reject(error) : Promise.resolve({ stdout: '', stderr: '' });
   };
   const report = (error) => state.reports.push(error);
   return {
     state,
+    app,
     ask: () => moveToApplications({
       app, dialog, store, translate: t, fs, execFile, report,
     }),
@@ -186,6 +189,14 @@ async function run() {
     ]);
     assert.strictEqual(state.dialogs.length, 1, 'no failure dialog');
     assert.strictEqual(state.reports.length, 0);
+  });
+  await check('moved, with a link opened meanwhile', async () => {
+    const link = 'pandastudio://https//pandasuite.com/dashboard/';
+    const { state, app, ask } = moving({ linkDuringCopy: link });
+    assert.strictEqual(await ask(), true);
+    assert.deepStrictEqual(state.calls[5],
+      ['relaunch', { execPath: '/usr/bin/open', args: ['-a', INSTALLED, link] }]);
+    assert.strictEqual(app.listenerCount('open-url'), 0, 'stops listening');
   });
   await check('moved, temporary folder left behind', async () => {
     const { state, ask } = moving({ fail: { rm: failure('Command failed: /bin/rm') } });
