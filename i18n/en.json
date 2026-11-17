@@ -37,5 +37,13 @@
   "menu.bug": "Report a bug",
   "Reload": "Reload",
   "homeRecovery.title": "Home is not responding",
-  "homeRecovery.message": "You can reload Home. Your open projects stay in place."
+  "homeRecovery.message": "You can reload Home. Your open projects stay in place.",
+  "moveToApplications.message": "Move PandaSuite Studio to Applications?",
+  "moveToApplications.detail": "Studio can’t install updates when it runs from the disk image or your Downloads folder. Once it’s in Applications, it restarts and installs them as usual.",
+  "moveToApplications.move": "Move to Applications",
+  "moveToApplications.later": "Not Now",
+  "moveToApplications.dontAsk": "Don’t ask again",
+  "moveToApplications.failedMessage": "Studio couldn’t be moved",
+  "moveToApplications.failedDetail": "In the Finder, drag PandaSuite Studio to the Applications folder, then open it from there.",
+  "moveToApplications.ok": "OK"
 }

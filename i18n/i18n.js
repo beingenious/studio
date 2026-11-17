@@ -19,14 +19,16 @@ module.exports = (function i18n() {
     return loadedLanguage[currentLocale][phrase];
   };
 
-  this.changeLocale = (locale) => {
-    let newLocale;
+  const resolveLocale = (locale) => ((locale || '').startsWith('fr') ? 'fr-FR' : 'en-US');
 
-    if (locale.startsWith('fr')) {
-      newLocale = 'fr-FR';
-    } else {
-      newLocale = 'en-US';
-    }
+  // Translates in a given language without changing the app's current one.
+  this.translateFor = (locale) => {
+    const language = loadedLanguage[resolveLocale(locale)];
+    return (phrase) => language[phrase];
+  };
+
+  this.changeLocale = (locale) => {
+    const newLocale = resolveLocale(locale);
     if (newLocale !== currentLocale) {
       currentLocale = newLocale;
       return true;

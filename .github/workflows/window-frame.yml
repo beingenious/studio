@@ -9,6 +9,8 @@ on:
       - 'error-event.js'
       - 'error-reporting.js'
       - 'auto-update.js'
+      - 'move-to-applications.js'
+      - 'i18n/**'
       - 'native/**'
       - 'package.json'
       - 'scripts/**'
@@ -36,5 +38,7 @@ jobs:
       - run: node scripts/test-home-recovery-wiring.js
       - run: node scripts/test-error-event.js
       - run: node scripts/test-auto-update.js
+      - run: node scripts/test-move-to-applications.js
+      - run: node scripts/test-startup-wiring.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js
       - run: npx --no-install electron scripts/test-error-reporting-electron.js

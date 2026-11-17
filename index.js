@@ -11,7 +11,10 @@ const {
   powerMonitor,
   nativeTheme,
 } = require('electron');
+const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { autoUpdater } = require('electron-updater');
 const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
@@ -33,9 +36,11 @@ const attachWindowLayout = require('./window-layout');
 const attachMacTitlebar = require('./macos-titlebar');
 const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
-const { __, changeLocale } = require('./i18n/i18n');
+const { __, changeLocale, translateFor } = require('./i18n/i18n');
+const config = require('./config');
 const errorReporting = require('./error-reporting');
 const autoUpdate = require('./auto-update');
+const moveToApplications = require('./move-to-applications');
 
 errorReporting.start();
 
@@ -753,7 +758,8 @@ const createPublicationWindow = async (url = null) => {
 };
 
 // Prevent multiple instances of the app
-if (!app.requestSingleInstanceLock()) {
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
   app.quit();
 }
 
@@ -833,7 +839,19 @@ const createMenu = () => {
 };
 
 (async () => {
+  // quit() before ready does not stop this startup: a second instance must not build windows.
+  if (!gotLock) return;
   await app.whenReady();
+  // A deep link would be lost by the relaunch: ask at the next normal launch instead.
+  if (!deeplinkingUrl && await moveToApplications({
+    app,
+    dialog,
+    store: config,
+    translate: translateFor(app.getLocale()),
+    fs,
+    execFile: promisify(execFile),
+    report: errorReporting.captureException,
+  })) return;
   logHome('startup');
   powerMonitor.on('suspend', () => logHome('suspend'));
   powerMonitor.on('resume', () => logHome('resume'));
