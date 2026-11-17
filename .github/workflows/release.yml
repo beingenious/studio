@@ -63,7 +63,7 @@ jobs:
           const builder = require.resolve('electron-builder', { paths: [process.cwd()] });
           const file = createRequire(builder).resolve('app-builder-lib/out/codeSign/macCodeSign.js');
           const RANDOM = 'const keychainPassword = (0, crypto_1.randomBytes)(32).toString("base64");';
-          const FIXED = 'const keychainPassword = cscKeyPassword || (0, crypto_1.randomBytes)(32).toString("base64");';
+          const FIXED = 'const keychainPassword = cscKeyPassword ?? (0, crypto_1.randomBytes)(32).toString("base64");';
           const UPSTREAM = ['certPaths, cscPasswords, keychainPassword)', 'keyPasswords, keychainPassword)', '"-k", keychainPassword, keychainFile'];
           const source = fs.readFileSync(file, 'utf8');
           if (source.includes(FIXED) || UPSTREAM.every((marker) => source.includes(marker))) {
