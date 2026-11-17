@@ -54,9 +54,8 @@ jobs:
       - name: Fix electron-builder keychain unlock on macOS
         run: |
           node - <<'EOF'
-          // electron-builder 25 unlocks its temporary keychain with the certificate password, which
-          // macOS now checks. Create that keychain with the certificate password: it is the only one
-          // the logs may show, and GitHub masks it. electron-builder 26.18 fixes this upstream.
+          // electron-builder 25 unlocks its signing keychain with the wrong password, which recent
+          // macOS rejects. Fixed upstream in electron-builder 26.18.
           const fs = require('fs');
           const { createRequire } = require('module');
 
