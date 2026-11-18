@@ -85,4 +85,19 @@ jobs:
           export SZA_PATH="$(node -p "require('7zip-bin').path7za")"
           chmod +x "$SZA_PATH"
           node scripts/ci/patch-fpm-rpm-buildroot.js
+      - name: Use GNU ar for Linux packages
+        # Xcode 27's ar drops the files of a .deb that are not Mach-O.
+        run: |
+          brew list binutils >/dev/null 2>&1 || HOMEBREW_NO_AUTO_UPDATE=1 brew install binutils
+          mkdir -p "$RUNNER_TEMP/gnu-ar"
+          ln -sf "$(brew --prefix binutils)/bin/ar" "$RUNNER_TEMP/gnu-ar/ar"
+          echo "$RUNNER_TEMP/gnu-ar" >> "$GITHUB_PATH"
       - run: npm run dist
+        env:
+          # Hard links let the x64 and ia32 builds change files the other is archiving.
+          USE_HARD_LINKS: 'false'
+      - name: Check Linux packages
+        run: |
+          for deb in dist/*.deb; do
+            ar t "$deb" | grep -qx 'data.tar.xz' || { echo "Incomplete package: $deb"; exit 1; }
+          done
