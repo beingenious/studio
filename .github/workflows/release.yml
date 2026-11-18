@@ -93,6 +93,9 @@ jobs:
           ln -sf "$(brew --prefix binutils)/bin/ar" "$RUNNER_TEMP/gnu-ar/ar"
           echo "$RUNNER_TEMP/gnu-ar" >> "$GITHUB_PATH"
       - run: npm run dist
+        env:
+          # Hard links let the x64 and ia32 builds change files the other is archiving.
+          USE_HARD_LINKS: 'false'
       - name: Check Linux packages
         run: |
           for deb in dist/*.deb; do
