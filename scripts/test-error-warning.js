@@ -96,11 +96,13 @@ const check = async (name, test) => {
     assert(/showDialog: false,\s*logger: createErrorWarning\(/.test(source), 'with this warning');
     assert(/translate: \(\) => \(dashboardLanguage \? __ : translateFor\(app\.getLocale\(\)\)\)/
       .test(source), 'the dashboard language once set, the system one before');
-    assert(/home: app\.getPath\('home'\)/.test(source), 'the home folder is cleaned');
+    const from = source.indexOf('createErrorWarning({');
+    const wiring = source.slice(from, source.indexOf('\n  }),\n});', from));
+    assert(/home: app\.getPath\('home'\)/.test(wiring), 'the home folder is cleaned');
     assert(/showMessageBox: \(parent, options\) => dialog\.showMessageBox\(parent, options\)/
-      .test(source), 'on its window');
-    assert(/writeClipboard: \(text\) => clipboard\.writeText\(text\)/.test(source), 'copies');
-    assert(/app\.once\('browser-window-focus', resolve\)/.test(source), 'waits for a window');
+      .test(wiring), 'on its window');
+    assert(/writeClipboard: \(text\) => clipboard\.writeText\(text\)/.test(wiring), 'copies');
+    assert(/app\.once\('browser-window-focus', resolve\)/.test(wiring), 'waits for a window');
     const handler = source.slice(source.indexOf("ipcMain.on('updateLanguage'"));
     const set = handler.indexOf('dashboardLanguage = true');
     assert(set > handler.indexOf('changeLocale(data.language)'), 'set once the language is valid');
@@ -219,6 +221,26 @@ const check = async (name, test) => {
     run.warn(rejected("'timeout'"));
     await settle();
     assert.strictEqual(run.state.dialogs.length, 2);
+  });
+
+  await check('errors without frames of their own are told apart by their text', async () => {
+    const run = setup();
+    run.ready();
+    const stackless = (message) => {
+      const error = new Error(message);
+      error.stack = `Error: ${message}\n    <Original stack missing>\n    at ensureError (node_modules/ensure-error/index.js:1:1)`;
+      return error;
+    };
+    const bare = (message) => Object.assign(new Error(message), { stack: `Error: ${message}` });
+    const errors = [stackless('disk full'), stackless('network down'), bare('one'), bare('two')];
+    await errors.reduce((previous, error) => previous.then(() => {
+      run.warn(error);
+      return settle();
+    }), Promise.resolve());
+    assert.strictEqual(run.state.dialogs.length, 4, 'each told');
+    run.warn(stackless('network down'));
+    await settle();
+    assert.strictEqual(run.state.dialogs.length, 4, 'and only once');
   });
 
   await check('a message that failed is tried again for the same error', async () => {

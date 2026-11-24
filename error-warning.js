@@ -52,8 +52,10 @@ module.exports = function createErrorWarning({
     try {
       const details = cleanMessage(String(error.stack || error), home);
       const frames = details.split('\n').filter((line) => /^\s*at /.test(line)).join('\n');
-      // A rejected value is wrapped with the same frames whatever it is: its text tells it apart.
-      const key = error.name === 'NonError' || !frames ? details : frames;
+      // A rejected value, or an error without a stack, gets its frames from ensure-error, the
+      // same whatever the error: then only its text tells it apart.
+      const borrowed = error.name === 'NonError' || details.includes('<Original stack missing>');
+      const key = borrowed || !frames ? details : frames;
       if (open || told.has(key)) return;
       open = true;
       tell(details, key)
