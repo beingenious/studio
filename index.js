@@ -20,7 +20,6 @@ const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
-const { download } = require('electron-dl');
 const serve = require('electron-serve');
 const windowStateKeeper = require('electron-window-state');
 
@@ -41,6 +40,7 @@ const config = require('./config');
 const errorReporting = require('./error-reporting');
 const autoUpdate = require('./auto-update');
 const moveToApplications = require('./move-to-applications');
+const downloadFile = require('./download-file');
 
 errorReporting.start();
 
@@ -328,6 +328,18 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
+const startDownload = (win, url) => downloadFile({
+  win,
+  url,
+  directory: app.getPath('downloads'),
+  showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+  showItemInFolder: (file) => shell.showItemInFolder(file),
+  // The Dock bounces its Downloads stack on macOS.
+  downloadFinished: (file) => app.dock && app.dock.downloadFinished(file),
+  translate: __,
+  fs,
+});
+
 const createOrSelectBrowserView = ({ url, home }, win) => {
   const currentWindow =
     focusedWindow || BrowserWindow.getFocusedWindow() || win;
@@ -402,12 +414,7 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
       }
       if (newUrl.indexOf('get_aws_url_for') !== -1) {
         e.preventDefault();
-        download(currentWindow, newUrl)
-          .then((downloadItem) => {
-            const filename = downloadItem.getSavePath();
-            shell.showItemInFolder(filename);
-          })
-          .catch(() => {});
+        startDownload(currentWindow, newUrl);
         return;
       }
 
@@ -701,12 +708,7 @@ const createPublicationWindow = async (url = null) => {
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      download(win, newUrl)
-        .then((downloadItem) => {
-          const filename = downloadItem.getSavePath();
-          shell.showItemInFolder(filename);
-        })
-        .catch(() => {});
+      startDownload(win, newUrl);
       return;
     }
 
