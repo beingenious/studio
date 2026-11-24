@@ -4,6 +4,9 @@
   "Blog": "Blog",
   "Leave": "Leave",
   "Cancel": "Cancel",
+  "download.failedMessage": "The download couldn’t be completed",
+  "download.failedDetail": "“{file}” couldn’t be saved. Check your internet connection, the free space on your disk and that your Downloads folder can be written to, then try again.",
+  "download.tryAgain": "Try Again",
   "Are you sure you want to close this project?": "Are you sure you want to close this project?",
   "Unsaved changes will be discarded.": "Unsaved changes will be discarded.",
   "errorWarning.message": "Studio ran into a problem",
@@ -42,6 +45,10 @@
   "Reload": "Reload",
   "homeRecovery.title": "Home is not responding",
   "homeRecovery.message": "You can reload Home. Your open projects stay in place.",
+  "connection.message": "Studio can’t connect",
+  "connection.detail": "Check your internet connection, then try again.",
+  "connection.tryAgain": "Try Again",
+  "connection.close": "Close",
   "moveToApplications.message": "Move PandaSuite Studio to Applications?",
   "moveToApplications.detail": "Studio can’t install updates when it runs from the disk image or your Downloads folder. Once it’s in Applications, it restarts and installs them as usual.",
   "moveToApplications.move": "Move to Applications",
@@ -49,5 +56,8 @@
   "moveToApplications.dontAsk": "Don’t ask again",
   "moveToApplications.failedMessage": "Studio couldn’t be moved",
   "moveToApplications.failedDetail": "In the Finder, drag PandaSuite Studio to the Applications folder, then open it from there.",
-  "moveToApplications.ok": "OK"
+  "moveToApplications.ok": "OK",
+  "autoUpdate.diskFullMessage": "Studio couldn’t install an update",
+  "autoUpdate.diskFullDetail": "There isn’t enough free space on your disk. Free up some space and Studio will try again later.",
+  "autoUpdate.ok": "OK"
 }
