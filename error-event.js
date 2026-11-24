@@ -80,7 +80,10 @@ const parseStack = (stack, paths) => stack.split('\n')
   .reverse();
 
 const cleanMessage = (message, home) => {
-  const homes = home && home.length > 1 ? [home, toSlashes(home)] : [];
+  // An inspected value, such as a rejected string, shows its backslashes doubled.
+  const homes = home && home.length > 1
+    ? [home.replace(/\\/g, '\\\\'), home, toSlashes(home)]
+    : [];
   const insensitive = /^[a-z]:[\\/]/i.test(home || '');
   return homes
     .reduce((text, form) => text.replace(new RegExp(escapeRegExp(form), insensitive ? 'gi' : 'g'), '~'), message)
@@ -114,4 +117,4 @@ const exceptionKey = ([exception]) => {
   return [exception.type, exception.value, top ? `${top.filename}:${top.lineno}` : ''].join('|');
 };
 
-module.exports = { buildExceptionList, exceptionKey };
+module.exports = { buildExceptionList, exceptionKey, cleanMessage };

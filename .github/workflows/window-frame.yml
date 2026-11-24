@@ -12,6 +12,7 @@ on:
       - 'update-warning.js'
       - 'connection-recovery.js'
       - 'download-file.js'
+      - 'error-warning.js'
       - 'move-to-applications.js'
       - 'i18n/**'
       - 'native/**'
@@ -44,6 +45,7 @@ jobs:
       - run: node scripts/test-update-warning.js
       - run: node scripts/test-connection-recovery.js
       - run: node scripts/test-download-file.js
+      - run: node scripts/test-error-warning.js
       - run: node scripts/test-move-to-applications.js
       - run: node scripts/test-startup-wiring.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js

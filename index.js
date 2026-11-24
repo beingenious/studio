@@ -10,6 +10,7 @@ const {
   screen,
   powerMonitor,
   nativeTheme,
+  clipboard,
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -43,10 +44,26 @@ const moveToApplications = require('./move-to-applications');
 const warnDiskFull = require('./update-warning');
 const loadStartPage = require('./connection-recovery');
 const downloadFile = require('./download-file');
+const createErrorWarning = require('./error-warning');
 
 errorReporting.start();
 
-unhandled();
+// Until the dashboard sets the language, the system's applies.
+let dashboardLanguage = false;
+// An unexpected error leaves Studio running: say so in plain words, details on request.
+unhandled(is.development ? {} : {
+  showDialog: false,
+  logger: createErrorWarning({
+    whenReady: () => app.whenReady(),
+    nextFocusedWindow: () => new Promise((resolve) => app.once('browser-window-focus', resolve)),
+    BrowserWindow,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    translate: () => (dashboardLanguage ? __ : translateFor(app.getLocale())),
+    writeClipboard: (text) => clipboard.writeText(text),
+    home: app.getPath('home'),
+    log: console.error, // eslint-disable-line no-console
+  }),
+});
 debug();
 contextMenu();
 setupFlashPlayer();
@@ -623,7 +640,10 @@ const createPublicationWindow = async (url = null) => {
 
   ipcMain.on('updateLanguage', (event, data) => {
     if (data && data.language) {
-      if (changeLocale(data.language)) {
+      const changed = changeLocale(data.language);
+      // From now on the dashboard's language applies, changed or not.
+      dashboardLanguage = true;
+      if (changed) {
         // eslint-disable-next-line no-use-before-define
         createMenu();
         executeJavaScript(
