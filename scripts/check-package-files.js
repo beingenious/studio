@@ -23,7 +23,7 @@ module.exports = async (context) => {
   ['package.json', 'index.js', 'preload.js', 'macos-titlebar.js', 'window-layout.js',
     'home-recovery.js', 'home-recovery-log.js', 'flash-player.js', 'menu.js',
     'error-event.js', 'error-reporting.js', 'auto-update.js', 'update-warning.js',
-    'move-to-applications.js', 'connection-recovery.js',
+    'move-to-applications.js', 'connection-recovery.js', 'download-file.js',
     'i18n/i18n.js', 'i18n/en.json', 'i18n/fr.json'].forEach((name) => {
     const file = entry(name);
     assert(file && typeof file.size === 'number', `Missing application file: ${name}`);
