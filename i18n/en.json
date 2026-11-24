@@ -45,5 +45,8 @@
   "moveToApplications.dontAsk": "Don’t ask again",
   "moveToApplications.failedMessage": "Studio couldn’t be moved",
   "moveToApplications.failedDetail": "In the Finder, drag PandaSuite Studio to the Applications folder, then open it from there.",
-  "moveToApplications.ok": "OK"
+  "moveToApplications.ok": "OK",
+  "autoUpdate.diskFullMessage": "Studio couldn’t install an update",
+  "autoUpdate.diskFullDetail": "There isn’t enough free space on your disk. Free up some space and Studio will try again later.",
+  "autoUpdate.ok": "OK"
 }

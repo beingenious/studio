@@ -9,11 +9,17 @@ const source = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
 // Window creation is where these checks stop: past it, startup needs the real Electron.
 const STOP = new Error('stop: window creation reached');
 const errorReporting = { start() {}, captureException() {} };
+const translate = (key) => key;
 
-const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
+const start = ({
+  lock = true, moved = false, deepLink = false, diskFull = false,
+} = {}) => {
   const order = [];
   let ready;
+  // One readiness for every caller, as in Electron.
+  const readiness = new Promise((resolve) => { ready = resolve; });
   let moveArgs;
+  const update = { warnings: [] };
   const app = new EventEmitter();
   Object.assign(app, {
     getPath: () => '/tmp',
@@ -25,7 +31,7 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
     quit() {},
     whenReady: () => {
       order.push('ready');
-      return new Promise((resolve) => { ready = resolve; });
+      return readiness;
     },
   });
   const electron = {
@@ -50,9 +56,20 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
     'electron-util': { is: { development: false } },
     'electron-updater': { autoUpdater: { checkForUpdates: () => Promise.resolve() } },
     './error-reporting': errorReporting,
-    './auto-update': () => null,
+    './auto-update': (updater, report, warnDiskFull) => {
+      // The updater runs before ready: a full disk can be found that early.
+      if (diskFull) {
+        update.result = warnDiskFull();
+        update.beforeReady = update.warnings.length;
+      }
+      return null;
+    },
+    './update-warning': (args) => {
+      update.warnings.push(args);
+      return 'dialog promise';
+    },
     './flash-player': { setupFlashPlayer() {} },
-    './i18n/i18n': { __: (key) => key, changeLocale() {}, translateFor: (locale) => `translator:${locale}` },
+    './i18n/i18n': { __: translate, changeLocale() {}, translateFor: (locale) => `translator:${locale}` },
     './move-to-applications': (args) => {
       order.push('move');
       moveArgs = args;
@@ -76,8 +93,10 @@ const start = ({ lock = true, moved = false, deepLink = false } = {}) => {
   });
   // On macOS a launch by link delivers open-url before ready.
   if (deepLink) app.emit('open-url', { preventDefault() {} }, 'pandastudio://pandasuite.com/link');
-  if (ready) ready();
-  return new Promise((resolve) => setImmediate(() => resolve({ order, moveArgs })));
+  ready();
+  return new Promise((resolve) => setImmediate(() => resolve({
+    order, moveArgs, update, electron,
+  })));
 };
 
 // Check every case before failing, so all regressions are visible.
@@ -113,6 +132,16 @@ async function run() {
   await check('launched by a link: no question', async () => {
     const { order } = await start({ moved: true, deepLink: true });
     assert.deepStrictEqual(order, ['ready', 'menu', 'window']);
+  });
+  await check('full disk: warned once ready, in the app language', async () => {
+    const { update, electron } = await start({ diskFull: true });
+    assert.strictEqual(update.beforeReady, 0, 'nothing shown before ready');
+    assert.strictEqual(await update.result, 'dialog promise', 'hands back the dialog promise');
+    assert.strictEqual(update.warnings.length, 1);
+    const [args] = update.warnings;
+    assert.strictEqual(args.dialog, electron.dialog);
+    assert.strictEqual(args.BrowserWindow, electron.BrowserWindow);
+    assert.strictEqual(args.translate, translate, 'follows the language the dashboard set');
   });
   process.removeListener('unhandledRejection', onRejection);
   if (failures.length) {
