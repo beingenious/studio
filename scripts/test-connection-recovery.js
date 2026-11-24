@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { EventEmitter } = require('events');
 const loadStartPage = require('../connection-recovery');
 const en = require('../i18n/en.json');
@@ -49,6 +51,13 @@ const start = (setupResult, translate = (key) => en[key]) => loadStartPage({
 });
 
 const failures = [];
+// A check left waiting forever would end the process early and silently: fail instead.
+let finished = false;
+process.on('exit', () => {
+  if (finished) return;
+  console.error('Connection recovery checks stopped before the end');
+  process.exitCode = 1;
+});
 const rejections = [];
 process.on('unhandledRejection', (reason) => rejections.push(reason));
 const check = async (name, test) => {
@@ -63,6 +72,17 @@ const check = async (name, test) => {
 };
 
 (async () => {
+  await check('Studio windows load their start page through it', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
+    const from = source.indexOf('const createPublicationWindow');
+    const body = source.slice(from, source.indexOf('\n};\n', from));
+    assert(/loadStartPage\(\{\s*win,\s*url: PANDASTUDIO_START_URL,/.test(body), 'with recovery');
+    assert(/showMessageBox: \(parent, options\) => dialog\.showMessageBox\(parent, options\)/
+      .test(body), 'messages on the window');
+    assert(/translate: translateFor\(app\.getLocale\(\)\)/.test(body), 'in the system language');
+    assert(!/win\.loadURL\(/.test(body), 'no other load of the start page');
+  });
+
   await check('texts exist in English and French', () => {
     [en, fr].forEach((language) => KEYS.forEach((key) => {
       assert.strictEqual(typeof language[key], 'string', key);
@@ -104,9 +124,11 @@ const check = async (name, test) => {
       loads: [failure()],
       answers: [() => new Promise((resolve) => { answer = resolve; })],
     });
-    await start(run);
+    let returned = false;
+    start(run).then(() => { returned = true; });
     await settle();
-    assert.strictEqual(run.state.dialogs.length, 1, 'returned while the message is open');
+    assert.strictEqual(run.state.dialogs.length, 1);
+    assert(returned, 'returned while the message is open');
     answer({ response: 1 });
   });
 
@@ -175,6 +197,7 @@ const check = async (name, test) => {
     await start(throwing);
   });
 
+  finished = true;
   if (failures.length) {
     console.error(`Connection recovery checks failed:\n${failures.join('\n')}`);
     process.exit(1);
