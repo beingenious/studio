@@ -42,6 +42,10 @@ class BrowserView {
         return Promise.resolve();
       },
       reload: () => { contents.reloads += 1; },
+      crashes: 0,
+      forcefullyCrashRenderer: () => { contents.crashes += 1; },
+      pid: 100 + views.length,
+      getOSProcessId: () => contents.pid,
       destroy() {},
     });
     views.push(this);
@@ -61,7 +65,13 @@ const window = {
   setTopBrowserView() {},
   removeBrowserView() {},
 };
-const shellContents = { getURL: () => 'https://pandasuite.com/dashboard/electron/tabs/' };
+const shellContents = {
+  getURL: () => 'https://pandasuite.com/dashboard/electron/tabs/',
+  pid: 1,
+  getOSProcessId: () => shellContents.pid,
+  isDestroyed: () => false,
+};
+const dialogs = [];
 window.webContents = shellContents;
 const nativeTheme = { themeSource: 'system' };
 const electron = {
@@ -73,6 +83,15 @@ const electron = {
     fromWebContents: (contents) => (contents === shellContents ? window : null),
   },
   nativeTheme,
+  webContents: {
+    getAllWebContents: () => [shellContents, ...views.map((view) => view.webContents)],
+  },
+  dialog: {
+    showMessageBox: (parent, options) => {
+      dialogs.push(options);
+      return new Promise(() => {});
+    },
+  },
   Menu: {
     getApplicationMenu: () => menu,
     setApplicationMenu: (value) => { menu = value; },
@@ -107,6 +126,7 @@ const context = {
 };
 vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8')}
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
+  homeRecovery, sharesProcess, updateHomeMenu,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
 assert.strictEqual(started, 1, 'error reporting starts once');
@@ -199,11 +219,28 @@ setImmediate(() => {
   const captureProjectError = (error) => { projectError = error; };
   process.on('unhandledRejection', captureProjectError);
   failNextLoad = true;
-  api.createOrSelectBrowserView({ url: 'https://pandasuite.com/authoring/other' }, window);
+  const projectUrl = 'https://pandasuite.com/authoring/other';
+  api.setFocusedWindow(window);
+  api.createOrSelectBrowserView({ url: projectUrl }, window);
   setImmediate(() => {
     process.removeListener('unhandledRejection', captureProjectError);
-    assert(projectError && projectError.message === 'project load failed',
-      'project load retains existing global unhandled-error policy');
+    assert.strictEqual(projectError, undefined, 'a project load failure is handled by its recovery');
+    const projectView = api.publicationsBrowserView[projectUrl];
+    assert(api.homeRecovery.get(projectView), 'a project tab gets a recovery');
+    assert(logged.some(({ event, data }) => event === 'load-rejected' && data.role === 'project'),
+      'its records say it is a project');
+    assert.strictEqual(menu.item.enabled, false, 'Reload Home stays for Home only');
+    api.createOrSelectBrowserView({ url: projectUrl }, window);
+    assert.strictEqual(dialogs[dialogs.length - 1].message, 'projectRecovery.loadMessage',
+      'the project tells its own failure');
+    assert.strictEqual(JSON.stringify(dialogs[dialogs.length - 1].buttons), '["Reload","Cancel"]');
+    assert.strictEqual(api.sharesProcess(projectView.webContents), false, 'a process of its own');
+    shellContents.pid = projectView.webContents.pid;
+    assert.strictEqual(api.sharesProcess(projectView.webContents), true, 'shared with the shell');
+    shellContents.pid = 1;
+    const other = views.find((view) => view !== projectView && !view.webContents.isDestroyed());
+    other.webContents.pid = projectView.webContents.pid;
+    assert.strictEqual(api.sharesProcess(projectView.webContents), true, 'shared with another tab');
     process.stdout.write('Home recovery production wiring assertions passed\n');
   });
 });

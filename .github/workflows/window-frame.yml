@@ -10,6 +10,8 @@ on:
       - 'error-reporting.js'
       - 'auto-update.js'
       - 'move-to-applications.js'
+      - 'home-recovery.js'
+      - 'home-recovery-log.js'
       - 'i18n/**'
       - 'native/**'
       - 'package.json'
@@ -36,6 +38,7 @@ jobs:
       - run: node scripts/test-macos-titlebar.js
       - run: node scripts/test-home-recovery.js
       - run: node scripts/test-home-recovery-wiring.js
+      - run: node scripts/test-tab-recovery.js
       - run: node scripts/test-error-event.js
       - run: node scripts/test-auto-update.js
       - run: node scripts/test-move-to-applications.js
