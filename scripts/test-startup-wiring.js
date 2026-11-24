@@ -58,10 +58,7 @@ const start = ({
     './error-reporting': errorReporting,
     './auto-update': (updater, report, warnDiskFull) => {
       // The updater runs before ready: a full disk can be found that early.
-      if (diskFull) {
-        update.result = warnDiskFull();
-        update.beforeReady = update.warnings.length;
-      }
+      if (diskFull) update.result = warnDiskFull();
       return null;
     },
     './update-warning': (args) => {
@@ -93,10 +90,14 @@ const start = ({
   });
   // On macOS a launch by link delivers open-url before ready.
   if (deepLink) app.emit('open-url', { preventDefault() {} }, 'pandastudio://pandasuite.com/link');
-  ready();
-  return new Promise((resolve) => setImmediate(() => resolve({
-    order, moveArgs, update, electron,
-  })));
+  return new Promise((resolve) => setImmediate(() => {
+    // Whatever waits for ready must not have run yet.
+    update.beforeReady = update.warnings.length;
+    ready();
+    setImmediate(() => resolve({
+      order, moveArgs, update, electron,
+    }));
+  }));
 };
 
 // Check every case before failing, so all regressions are visible.

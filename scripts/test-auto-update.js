@@ -31,7 +31,12 @@ const fakeUpdater = ({ active = true, check = () => Promise.resolve({}), nativeU
   if (nativeUpdater) updater.nativeUpdater = nativeUpdater;
   return updater;
 };
-const withCode = (code, domain) => Object.assign(new Error('localized text'), { code, domain });
+const withCode = (code, domain, message = 'localized text') => Object.assign(
+  new Error(message),
+  { code, domain },
+);
+// Squirrel.Mac's extraction errors carry the output of ditto as their message.
+const extraction = (output) => withCode(1, 'SQRLZipArchiverErrorDomain', output);
 
 // Check every case before failing, so all regressions are visible.
 const failures = [];
@@ -114,11 +119,15 @@ const start = async (updater, report, warnDiskFull) => {
       withCode(28, 'NSPOSIXErrorDomain'),
       withCode(640, 'NSCocoaErrorDomain'),
       withCode('ENOSPC'),
+      extraction('ditto: /Users/jane/Library/Caches/update/PandaSuite Studio.app/Contents/x: '
+        + 'No space left on device\nditto: Couldn\'t read pkzip signature.'),
     ].map(async (error) => {
       const warn = spy();
       const updater = fakeUpdater();
       autoUpdate(updater, spy(), warn);
       updater.emit('error', error);
+      await settle();
+      assert.strictEqual(warn.calls.length, 1, `warned: ${error.domain || ''} ${error.code}`);
       // Squirrel's failure arrives twice, and the check every 4 hours fails again.
       updater.emit('error', error);
       updater.emit('error', withCode('ENOSPC'));
@@ -135,6 +144,7 @@ const start = async (updater, report, warnDiskFull) => {
     updater.emit('error', withCode(28));
     updater.emit('error', withCode(28, 'NSURLErrorDomain'));
     updater.emit('error', new Error('No space left on device'));
+    updater.emit('error', extraction('ditto: Couldn\'t read pkzip signature.'));
     updater.emit('error', null);
     await settle();
     assert.deepStrictEqual(warn.calls, []);

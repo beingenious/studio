@@ -3,11 +3,14 @@ const FOUR_HOURS = 1000 * 60 * 60 * 4;
 // retries of the same refusal together.
 const SQUIRREL_FOLDER = /\/update\.[^/]+\//g;
 
-// Recognized by code, never by message: Squirrel.Mac's messages follow the system language.
+// Recognized by code: Squirrel.Mac's messages follow the system language. Its extraction
+// errors are the exception: their message is the output of ditto, which is always English.
 const isDiskFull = (error) => !!error && (
   error.code === 'ENOSPC'
   || (error.domain === 'NSPOSIXErrorDomain' && error.code === 28)
   || (error.domain === 'NSCocoaErrorDomain' && error.code === 640)
+  || (error.domain === 'SQRLZipArchiverErrorDomain'
+    && String(error.message).includes('No space left on device'))
 );
 
 // Checks for updates at startup and every four hours where the installation can update
