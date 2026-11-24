@@ -41,6 +41,7 @@ const config = require('./config');
 const errorReporting = require('./error-reporting');
 const autoUpdate = require('./auto-update');
 const moveToApplications = require('./move-to-applications');
+const warnDiskFull = require('./update-warning');
 const loadStartPage = require('./connection-recovery');
 
 errorReporting.start();
@@ -67,7 +68,10 @@ const ELECTRON_MENU_HEIGHT = 45;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
-if (!is.development) autoUpdate(autoUpdater, errorReporting.captureException);
+if (!is.development) {
+  autoUpdate(autoUpdater, errorReporting.captureException, () => app.whenReady()
+    .then(() => warnDiskFull({ dialog, BrowserWindow, translate: __ })));
+}
 
 const publicationsBrowserView = {};
 const garbageBrowserView = {};
