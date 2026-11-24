@@ -19,17 +19,24 @@ const spy = () => {
   return report;
 };
 const fakeUpdater = ({ active = true, check = () => Promise.resolve({}), nativeUpdater } = {}) => {
-  const updater = {
+  // electron-updater emits every failure as 'error' on the updater itself.
+  const updater = Object.assign(new EventEmitter(), {
     checks: 0,
     isUpdaterActive: () => active,
     checkForUpdates() {
       updater.checks += 1;
       return check();
     },
-  };
+  });
   if (nativeUpdater) updater.nativeUpdater = nativeUpdater;
   return updater;
 };
+const withCode = (code, domain, message = 'localized text') => Object.assign(
+  new Error(message),
+  { code, domain },
+);
+// Squirrel.Mac's extraction errors carry the output of ditto as their message.
+const extraction = (output) => withCode(1, 'SQRLZipArchiverErrorDomain', output);
 
 // Check every case before failing, so all regressions are visible.
 const failures = [];
@@ -43,8 +50,8 @@ const run = async (name, test) => {
     failures.push(`${name}: ${error.message}`);
   }
 };
-const start = async (updater, report) => {
-  const timer = autoUpdate(updater, report);
+const start = async (updater, report, warnDiskFull) => {
+  const timer = autoUpdate(updater, report, warnDiskFull);
   await settle();
   clearInterval(timer);
   return timer;
@@ -105,6 +112,57 @@ const start = async (updater, report) => {
     Object.defineProperty(bare, 'message', { value: 42 });
     assert.doesNotThrow(() => nativeUpdater.emit('error', bare));
     assert.strictEqual(report.calls.length, 3);
+  });
+
+  await run('full disk: warned once per launch', async () => {
+    await Promise.all([
+      withCode(28, 'NSPOSIXErrorDomain'),
+      withCode(640, 'NSCocoaErrorDomain'),
+      withCode('ENOSPC'),
+      extraction('ditto: /Users/jane/Library/Caches/update/PandaSuite Studio.app/Contents/x: '
+        + 'No space left on device\nditto: Couldn\'t read pkzip signature.'),
+    ].map(async (error) => {
+      const warn = spy();
+      const updater = fakeUpdater();
+      autoUpdate(updater, spy(), warn);
+      updater.emit('error', error);
+      await settle();
+      assert.strictEqual(warn.calls.length, 1, `warned: ${error.domain || ''} ${error.code}`);
+      // Squirrel's failure arrives twice, and the check every 4 hours fails again.
+      updater.emit('error', error);
+      updater.emit('error', withCode('ENOSPC'));
+      await settle();
+      assert.strictEqual(warn.calls.length, 1, `${error.domain || ''} ${error.code}`);
+    }));
+  });
+
+  await run('other failures: no warning', async () => {
+    const warn = spy();
+    const updater = fakeUpdater();
+    autoUpdate(updater, spy(), warn);
+    updater.emit('error', withCode(-1004, 'NSURLErrorDomain'));
+    updater.emit('error', withCode(28));
+    updater.emit('error', withCode(28, 'NSURLErrorDomain'));
+    updater.emit('error', new Error('No space left on device'));
+    updater.emit('error', extraction('ditto: Couldn\'t read pkzip signature.'));
+    updater.emit('error', null);
+    await settle();
+    assert.deepStrictEqual(warn.calls, []);
+  });
+
+  await run('a failing warning stays contained', async () => {
+    const throwing = fakeUpdater();
+    autoUpdate(throwing, spy(), () => { throw new Error('no dialog'); });
+    assert.doesNotThrow(() => throwing.emit('error', withCode('ENOSPC')));
+    const rejecting = fakeUpdater();
+    autoUpdate(rejecting, spy(), () => Promise.reject(new Error('no dialog')));
+    rejecting.emit('error', withCode('ENOSPC'));
+  });
+
+  await run('inactive installation: no warning', async () => {
+    const updater = fakeUpdater({ active: false });
+    autoUpdate(updater, spy(), spy());
+    assert.strictEqual(updater.listenerCount('error'), 0);
   });
 
   await run('no native updater', async () => {
