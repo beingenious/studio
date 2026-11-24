@@ -10,6 +10,7 @@ const {
   screen,
   powerMonitor,
   nativeTheme,
+  clipboard,
   webContents,
 } = require('electron');
 const fs = require('fs');
@@ -21,7 +22,6 @@ const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
-const { download } = require('electron-dl');
 const serve = require('electron-serve');
 const windowStateKeeper = require('electron-window-state');
 
@@ -42,10 +42,29 @@ const config = require('./config');
 const errorReporting = require('./error-reporting');
 const autoUpdate = require('./auto-update');
 const moveToApplications = require('./move-to-applications');
+const warnDiskFull = require('./update-warning');
+const loadStartPage = require('./connection-recovery');
+const downloadFile = require('./download-file');
+const createErrorWarning = require('./error-warning');
 
 errorReporting.start();
 
-unhandled();
+// Until the dashboard sets the language, the system's applies.
+let dashboardLanguage = false;
+// An unexpected error leaves Studio running: say so in plain words, details on request.
+unhandled(is.development ? {} : {
+  showDialog: false,
+  logger: createErrorWarning({
+    whenReady: () => app.whenReady(),
+    nextFocusedWindow: () => new Promise((resolve) => app.once('browser-window-focus', resolve)),
+    BrowserWindow,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    translate: () => (dashboardLanguage ? __ : translateFor(app.getLocale())),
+    writeClipboard: (text) => clipboard.writeText(text),
+    home: app.getPath('home'),
+    log: console.error, // eslint-disable-line no-console
+  }),
+});
 debug();
 contextMenu();
 setupFlashPlayer();
@@ -67,7 +86,10 @@ const ELECTRON_MENU_HEIGHT = 45;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
-if (!is.development) autoUpdate(autoUpdater, errorReporting.captureException);
+if (!is.development) {
+  autoUpdate(autoUpdater, errorReporting.captureException, () => app.whenReady()
+    .then(() => warnDiskFull({ dialog, BrowserWindow, translate: __ })));
+}
 
 const publicationsBrowserView = {};
 const garbageBrowserView = {};
@@ -340,6 +362,18 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
+const startDownload = (win, url) => downloadFile({
+  win,
+  url,
+  directory: app.getPath('downloads'),
+  showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+  showItemInFolder: (file) => shell.showItemInFolder(file),
+  // The Dock bounces its Downloads stack on macOS.
+  downloadFinished: (file) => app.dock && app.dock.downloadFinished(file),
+  translate: __,
+  fs,
+});
+
 // What a project tab says when it fails: a crash already lost what was not saved, a failed load
 // has nothing to lose, a stuck page may lose it on reload, so waiting is the default.
 const projectTexts = (kind, { canReload }) => {
@@ -459,12 +493,7 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
       }
       if (newUrl.indexOf('get_aws_url_for') !== -1) {
         e.preventDefault();
-        download(currentWindow, newUrl)
-          .then((downloadItem) => {
-            const filename = downloadItem.getSavePath();
-            shell.showItemInFolder(filename);
-          })
-          .catch(() => {});
+        startDownload(currentWindow, newUrl);
         return;
       }
 
@@ -675,7 +704,10 @@ const createPublicationWindow = async (url = null) => {
 
   ipcMain.on('updateLanguage', (event, data) => {
     if (data && data.language) {
-      if (changeLocale(data.language)) {
+      const changed = changeLocale(data.language);
+      // From now on the dashboard's language applies, changed or not.
+      dashboardLanguage = true;
+      if (changed) {
         // eslint-disable-next-line no-use-before-define
         createMenu();
         executeJavaScript(
@@ -765,12 +797,7 @@ const createPublicationWindow = async (url = null) => {
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      download(win, newUrl)
-        .then((downloadItem) => {
-          const filename = downloadItem.getSavePath();
-          shell.showItemInFolder(filename);
-        })
-        .catch(() => {});
+      startDownload(win, newUrl);
       return;
     }
 
@@ -817,7 +844,13 @@ const createPublicationWindow = async (url = null) => {
     },
   );
 
-  await win.loadURL(PANDASTUDIO_START_URL).catch(() => {});
+  await loadStartPage({
+    win,
+    url: PANDASTUDIO_START_URL,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    // The dashboard has not set the language yet: use the system's.
+    translate: translateFor(app.getLocale()),
+  });
   return win;
 };
 

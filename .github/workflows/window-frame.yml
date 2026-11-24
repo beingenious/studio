@@ -9,6 +9,10 @@ on:
       - 'error-event.js'
       - 'error-reporting.js'
       - 'auto-update.js'
+      - 'update-warning.js'
+      - 'connection-recovery.js'
+      - 'download-file.js'
+      - 'error-warning.js'
       - 'move-to-applications.js'
       - 'home-recovery.js'
       - 'home-recovery-log.js'
@@ -41,6 +45,10 @@ jobs:
       - run: node scripts/test-tab-recovery.js
       - run: node scripts/test-error-event.js
       - run: node scripts/test-auto-update.js
+      - run: node scripts/test-update-warning.js
+      - run: node scripts/test-connection-recovery.js
+      - run: node scripts/test-download-file.js
+      - run: node scripts/test-error-warning.js
       - run: node scripts/test-move-to-applications.js
       - run: node scripts/test-startup-wiring.js
       - run: npx --no-install electron scripts/test-window-frame-electron.js
