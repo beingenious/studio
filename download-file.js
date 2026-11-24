@@ -66,7 +66,7 @@ module.exports = function downloadFile(options) {
       return showMessageBox(win, {
         type: 'warning',
         message: translate('download.failedMessage'),
-        detail: translate('download.failedDetail').replace('{file}', filename),
+        detail: translate('download.failedDetail').replace('{file}', () => filename),
         buttons: [translate('download.tryAgain'), translate('Cancel')],
         defaultId: 0,
         cancelId: 1,

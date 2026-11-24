@@ -58,7 +58,11 @@ const studio = ({ existing = [], answers = [] } = {}) => {
   };
   Object.assign(win, {
     isDestroyed: () => state.destroyed,
-    setProgressBar: (value) => state.progress.push(value),
+    // Like Electron, a destroyed window throws.
+    setProgressBar: (value) => {
+      if (state.destroyed) throw new Error('Object has been destroyed');
+      state.progress.push(value);
+    },
   });
   // Downloads is case-insensitive, as on most Macs and Windows PCs.
   const files = new Set(existing.map((name) => path.join(DIR, name).toLowerCase()));
@@ -85,8 +89,8 @@ const studio = ({ existing = [], answers = [] } = {}) => {
   });
   // Electron announces the item on the session of the window that asked for it.
   const start = (item, source = win.webContents) => {
+    // Chromium creates the file later: only the reservation keeps two downloads apart.
     session.emit('will-download', {}, item, source);
-    if (item.savePath) files.add(item.savePath.toLowerCase());
   };
   return {
     win, session, state, options, start, files,
@@ -246,7 +250,7 @@ const check = async (name, test) => {
       assert.deepStrictEqual(dialog, {
         type: 'warning',
         message: language['download.failedMessage'],
-        detail: language['download.failedDetail'].replace('{file}', 'export.zip'),
+        detail: language['download.failedDetail'].replace('{file}', () => 'export.zip'),
         buttons: [language['download.tryAgain'], language.Cancel],
         defaultId: 0,
         cancelId: 1,
@@ -255,6 +259,16 @@ const check = async (name, test) => {
       assert.deepStrictEqual(run.state.progress, [-1]);
     }),
   ));
+
+  await check('a file name with $ shows as is', async () => {
+    const run = studio();
+    downloadFile(run.options());
+    const item = fakeItem({ filename: 'a$&b$$.zip' });
+    run.start(item);
+    item.emit('done', {}, 'interrupted');
+    await settle();
+    assert(run.state.dialogs[0].dialog.detail.includes('a$&b$$.zip'));
+  });
 
   await check('interrupted for good: same message, nothing to cancel', async () => {
     const run = studio();
@@ -320,6 +334,14 @@ const check = async (name, test) => {
     await settle();
     assert.deepStrictEqual(during.state.dialogs, []);
     assert.deepStrictEqual(during.state.removed, [item.savePath], 'partial still removed');
+
+    const finishing = studio();
+    downloadFile(finishing.options());
+    const done = fakeItem();
+    finishing.start(done);
+    finishing.state.destroyed = true;
+    done.emit('done', {}, 'completed');
+    assert.deepStrictEqual(finishing.state.revealed, [done.savePath], 'still revealed');
   });
 
   await check('a failing message stays contained', async () => {
