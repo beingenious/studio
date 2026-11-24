@@ -340,6 +340,7 @@ const check = async (name, test) => {
     const done = fakeItem();
     finishing.start(done);
     finishing.state.destroyed = true;
+    done.emit('updated', {}, 'progressing');
     done.emit('done', {}, 'completed');
     assert.deepStrictEqual(finishing.state.revealed, [done.savePath], 'still revealed');
   });
