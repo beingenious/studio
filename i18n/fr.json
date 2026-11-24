@@ -41,6 +41,10 @@
   "Reload": "Recharger",
   "homeRecovery.title": "L’accueil ne répond plus",
   "homeRecovery.message": "Vous pouvez recharger l’accueil. Vos projets ouverts restent en place.",
+  "connection.message": "Studio ne parvient pas à se connecter",
+  "connection.detail": "Vérifiez votre connexion internet, puis réessayez.",
+  "connection.tryAgain": "Réessayer",
+  "connection.close": "Fermer",
   "moveToApplications.message": "Déplacer PandaSuite Studio dans Applications ?",
   "moveToApplications.detail": "Ouvert depuis l’image disque ou le dossier Téléchargements, Studio ne peut pas installer ses mises à jour. Une fois dans Applications, il redémarre et les installe normalement.",
   "moveToApplications.move": "Déplacer dans Applications",
@@ -48,5 +52,8 @@
   "moveToApplications.dontAsk": "Ne plus demander",
   "moveToApplications.failedMessage": "Studio n’a pas pu être déplacé",
   "moveToApplications.failedDetail": "Dans le Finder, faites glisser PandaSuite Studio dans le dossier Applications, puis ouvrez-le depuis ce dossier.",
-  "moveToApplications.ok": "OK"
+  "moveToApplications.ok": "OK",
+  "autoUpdate.diskFullMessage": "Studio n’a pas pu installer une mise à jour",
+  "autoUpdate.diskFullDetail": "L’espace libre sur votre disque est insuffisant. Libérez de la place : Studio réessaiera plus tard.",
+  "autoUpdate.ok": "OK"
 }
