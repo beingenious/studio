@@ -30,6 +30,7 @@ module.exports = function createHomeRecoveryLog({ file, versions = {} }) {
     });
     if (REASONS.has(data.reason)) record.reason = data.reason;
     if (data.boundary === 'home') record.boundary = 'home';
+    if (['home', 'project'].includes(data.role)) record.role = data.role;
     if (ERROR_NAMES.has(data.errorName)) record.errorName = data.errorName;
     if (['menu', 'dialog'].includes(data.source)) record.source = data.source;
     const line = `${JSON.stringify(record)}\n`;

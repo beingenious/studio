@@ -11,6 +11,7 @@ const {
   powerMonitor,
   nativeTheme,
   clipboard,
+  webContents,
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -112,11 +113,22 @@ const logHome = (event, data) => {
   }
   homeLog(event, data);
 };
-const selectedHome = () => {
+// The recovery of the selected tab of the focused window, Home or a project.
+const selectedController = () => {
   if (!focusBrowserView || focusBrowserView.webContents.isDestroyed()) return null;
   const win = viewWindows.get(focusBrowserView);
   if (!win || win.isDestroyed() || win !== focusedWindow) return null;
   return homeRecovery.get(focusBrowserView);
+};
+// Home is the one view whose page reports its errors.
+const selectedHome = () => (
+  focusBrowserView && homeSenders.has(focusBrowserView.webContents) ? selectedController() : null
+);
+// Ending a stuck renderer would also end whatever else lives in its process.
+const sharesProcess = (contents) => {
+  const id = contents.getOSProcessId();
+  return webContents.getAllWebContents().some((other) => other !== contents
+    && !other.isDestroyed() && other.getOSProcessId() === id);
 };
 const updateHomeMenu = () => {
   const applicationMenu = Menu.getApplicationMenu();
@@ -362,6 +374,36 @@ const startDownload = (win, url) => downloadFile({
   fs,
 });
 
+// What a project tab says when it fails: a crash already lost what was not saved, a failed load
+// has nothing to lose, a stuck page may lose it on reload, so waiting is the default.
+const projectTexts = (kind, { canReload }) => {
+  if (kind === 'hang' && !canReload) {
+    return {
+      message: __('projectRecovery.hangMessage'),
+      detail: __('projectRecovery.hangRestartDetail'),
+      buttons: [__('projectRecovery.ok')],
+      defaultId: 0,
+      reload: false,
+    };
+  }
+  if (kind === 'hang') {
+    return {
+      message: __('projectRecovery.hangMessage'),
+      detail: __('projectRecovery.hangDetail'),
+      buttons: [__('Reload'), __('projectRecovery.wait')],
+      defaultId: 1,
+      reload: true,
+    };
+  }
+  return {
+    message: __(`projectRecovery.${kind}Message`),
+    detail: __(`projectRecovery.${kind}Detail`),
+    buttons: [__('Reload'), __('Cancel')],
+    defaultId: 0,
+    reload: true,
+  };
+};
+
 const createOrSelectBrowserView = ({ url, home }, win) => {
   const currentWindow =
     focusedWindow || BrowserWindow.getFocusedWindow() || win;
@@ -394,7 +436,8 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
         isSelected: () => focusBrowserView === homeView && focusedWindow === currentWindow,
         showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
         translate: __,
-        log: logHome,
+        sharesProcess: () => sharesProcess(homeView.webContents),
+        log: (event, data) => logHome(event, { ...data, role: 'home' }),
       });
       homeRecovery.set(homeView, controller);
       homeSenders.set(homeView.webContents, controller);
@@ -404,6 +447,20 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
         homeSenders.delete(homeView.webContents);
         updateHomeMenu();
       });
+    } else {
+      const projectView = view;
+      homeRecovery.set(projectView, attachHomeRecovery({
+        view: projectView,
+        window: currentWindow,
+        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow,
+        // Not while Studio is in the background: window focus offers it on return.
+        canOffer: () => BrowserWindow.getFocusedWindow() === currentWindow,
+        showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+        translate: __,
+        texts: projectTexts,
+        sharesProcess: () => sharesProcess(projectView.webContents),
+        log: (event, data) => logHome(event, { ...data, role: 'project' }),
+      }));
     }
     const loadPromise = view.webContents.loadURL(url);
     const controller = homeRecovery.get(view);
@@ -473,7 +530,11 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
   currentWindow.setTopBrowserView(view);
   updateHomeMenu();
   const controller = homeRecovery.get(view);
-  if (controller) controller.selected();
+  // Home keeps its behavior: a message set aside stays so until the menu or a new failure.
+  if (controller) {
+    if (homeSenders.has(view.webContents)) controller.selected();
+    else controller.tabSelected();
+  }
 
   view.webContents.focus();
   if (process.platform !== 'win32') {
@@ -482,7 +543,10 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
       true,
     );
 
-    if (controller) selectionScript.catch(() => logHome('selection-script-failed'));
+    if (controller) {
+      const role = homeSenders.has(view.webContents) ? 'home' : 'project';
+      selectionScript.catch(() => logHome('selection-script-failed', { role }));
+    }
   }
 
   each(garbageBrowserView, (v, k) => {
@@ -671,7 +735,7 @@ const createPublicationWindow = async (url = null) => {
   win.on('focus', () => {
     focusedWindow = win;
     updateHomeMenu();
-    const controller = selectedHome();
+    const controller = selectedController();
     if (controller) controller.selected();
     if (focusBrowserView) {
       focusBrowserView.webContents.focus();

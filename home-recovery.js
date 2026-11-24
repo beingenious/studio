@@ -1,6 +1,16 @@
 // This controller retains a BrowserView, never a mutable tab URL or the shell.
+// Home's wording; a project tab passes its own, per kind of failure.
+const homeTexts = (translate) => () => ({
+  title: translate('homeRecovery.title'),
+  message: translate('homeRecovery.message'),
+  buttons: [translate('Reload'), translate('Cancel')],
+  defaultId: 0,
+  reload: true,
+});
+
 module.exports = function attachHomeRecovery({
   view, window, isSelected, showMessageBox, translate, log,
+  texts = homeTexts(translate), sharesProcess = () => true, canOffer = () => true,
 }) {
   const contents = view.webContents;
   let disposed = false;
@@ -10,6 +20,8 @@ module.exports = function attachHomeRecovery({
   let generation = 0;
   let hangStarted = null;
   let loadStarted = null;
+  // Set while the exit caused by a hang's recovery is expected, so it is not taken for a crash.
+  let killing = false;
   const listeners = [];
   const alive = () => !disposed && !window.isDestroyed() && !contents.isDestroyed();
   const record = (event, data = {}) => {
@@ -27,30 +39,42 @@ module.exports = function attachHomeRecovery({
       record('reload-unavailable');
       return false;
     }
+    // A stuck page does not reload: its renderer has to go first. Only when no other window
+    // or tab lives in that process.
+    const kill = failure === 'hang' && !sharesProcess();
     clearFailure();
     record('reload-requested', { source });
     try {
+      if (kill) {
+        killing = true;
+        contents.forcefullyCrashRenderer();
+      }
       contents.reload();
       return true;
     } catch (error) {
+      killing = false;
       record('reload-failed');
       return false;
     }
   };
   const offer = () => {
-    if (!alive() || !isSelected() || !failure || dismissed || prompt) return;
+    // canOffer only gates showing it: while a message is open, its window may not count as focused.
+    if (!alive() || !isSelected() || !canOffer() || !failure || dismissed || prompt) return;
     const token = generation;
     const pending = {};
     prompt = pending;
     let result;
+    let canReload = false;
     try {
+      const {
+        reload: reloads, buttons, ...fields
+      } = texts(failure, { canReload: failure !== 'hang' || !sharesProcess() });
+      canReload = reloads;
       result = showMessageBox(window, {
         type: 'warning',
-        title: translate('homeRecovery.title'),
-        message: translate('homeRecovery.message'),
-        buttons: [translate('Reload'), translate('Cancel')],
-        defaultId: 0,
-        cancelId: 1,
+        ...fields,
+        buttons,
+        cancelId: buttons.length - 1,
       });
     } catch (error) {
       result = Promise.reject(error);
@@ -59,7 +83,7 @@ module.exports = function attachHomeRecovery({
       if (!alive() || token !== generation) return;
       if (!isSelected()) return;
       dismissed = true;
-      if (response === 0) reload('dialog');
+      if (response === 0 && canReload) reload('dialog');
     }).catch(() => {
       if (token === generation) dismissed = true;
       record('dialog-failed');
@@ -74,7 +98,8 @@ module.exports = function attachHomeRecovery({
       failure = kind;
       dismissed = false;
       generation += 1;
-    } else if (failure === 'hang' && kind !== 'hang') {
+    } else if ((failure === 'hang' && kind !== 'hang') || (failure === 'load' && kind === 'crash')) {
+      // A worse failure replaces the one on screen, or one the user set aside.
       failure = kind;
       dismissed = false;
       generation += 1;
@@ -87,10 +112,16 @@ module.exports = function attachHomeRecovery({
   };
   on('render-process-gone', (event, details) => {
     record('renderer-exited', { reason: details.reason, exitCode: details.exitCode });
+    // Its reason varies by platform ('killed', or 'crashed' on Linux): any exit will do.
+    if (killing) {
+      killing = false;
+      return;
+    }
     fail('crash');
   });
   on('did-fail-load', (event, code, description, url, mainFrame) => {
     if (!mainFrame || code === -3) return;
+    killing = false;
     record('load-failed', {
       errorCode: code,
       ...(loadStarted === null ? {} : { durationMs: Date.now() - loadStarted }),
@@ -113,11 +144,18 @@ module.exports = function attachHomeRecovery({
     record('load-started');
   });
   on('did-finish-load', () => {
+    killing = false;
     clearFailure();
     record('load-finished', loadStarted === null ? {} : { durationMs: Date.now() - loadStarted });
   });
   return {
     selected: offer,
+    // Choosing the tab again is a new chance for a stuck page the user chose to wait for. Not on
+    // window focus: closing the message gives focus back to the window.
+    tabSelected() {
+      if (failure === 'hang') dismissed = false;
+      offer();
+    },
     reload,
     loadRejected(error) {
       // did-fail-load usually precedes the loadURL rejection. Both share an episode.
@@ -132,6 +170,7 @@ module.exports = function attachHomeRecovery({
     },
     dispose() {
       disposed = true;
+      killing = false;
       clearFailure();
       listeners.forEach(([event, listener]) => contents.removeListener(event, listener));
     },
