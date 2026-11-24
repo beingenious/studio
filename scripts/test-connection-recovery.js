@@ -80,7 +80,7 @@ const check = async (name, test) => {
     assert(/showMessageBox: \(parent, options\) => dialog\.showMessageBox\(parent, options\)/
       .test(body), 'messages on the window');
     assert(/translate: translateFor\(app\.getLocale\(\)\)/.test(body), 'in the system language');
-    assert(!/win\.loadURL\(/.test(body), 'no other load of the start page');
+    assert(!/\.loadURL\(|\.loadFile\(/.test(body), 'no other load of the start page');
   });
 
   await check('texts exist in English and French', () => {
