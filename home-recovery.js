@@ -10,7 +10,7 @@ const homeTexts = (translate) => () => ({
 
 module.exports = function attachHomeRecovery({
   view, window, isSelected, showMessageBox, translate, log,
-  texts = homeTexts(translate), sharesProcess = () => true,
+  texts = homeTexts(translate), sharesProcess = () => true, canOffer = () => true,
 }) {
   const contents = view.webContents;
   let disposed = false;
@@ -58,7 +58,8 @@ module.exports = function attachHomeRecovery({
     }
   };
   const offer = () => {
-    if (!alive() || !isSelected() || !failure || dismissed || prompt) return;
+    // canOffer only gates showing it: while a message is open, its window may not count as focused.
+    if (!alive() || !isSelected() || !canOffer() || !failure || dismissed || prompt) return;
     const token = generation;
     const pending = {};
     prompt = pending;

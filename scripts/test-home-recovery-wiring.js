@@ -74,6 +74,7 @@ const shellContents = {
 const dialogs = [];
 const answers = [];
 let studioInFront = true;
+let openMessages = 0;
 window.webContents = shellContents;
 const nativeTheme = { themeSource: 'system' };
 const electron = {
@@ -81,7 +82,8 @@ const electron = {
   ipcMain,
   BrowserView,
   BrowserWindow: {
-    getFocusedWindow: () => (studioInFront ? window : null),
+    // As on macOS, a window showing a message does not count as focused.
+    getFocusedWindow: () => (studioInFront && !openMessages ? window : null),
     fromWebContents: (contents) => (contents === shellContents ? window : null),
   },
   nativeTheme,
@@ -91,6 +93,7 @@ const electron = {
   dialog: {
     showMessageBox: (parent, options) => {
       dialogs.push(options);
+      openMessages += 1;
       return new Promise((resolve) => answers.push(resolve));
     },
   },
@@ -273,9 +276,11 @@ setImmediate(() => {
     });
 
     const flush = () => new Promise(setImmediate);
+    // The message counts as open until its answer has been handled, as a sheet does.
     const answer = async (response) => {
       answers.shift()({ response });
       await flush();
+      openMessages -= 1;
     };
     const stuck = projectView.webContents;
     (async () => {

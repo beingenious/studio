@@ -418,9 +418,9 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
       homeRecovery.set(projectView, attachHomeRecovery({
         view: projectView,
         window: currentWindow,
+        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow,
         // Not while Studio is in the background: window focus offers it on return.
-        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow
-          && BrowserWindow.getFocusedWindow() === currentWindow,
+        canOffer: () => BrowserWindow.getFocusedWindow() === currentWindow,
         showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
         translate: __,
         texts: projectTexts,
