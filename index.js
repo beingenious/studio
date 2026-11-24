@@ -42,6 +42,7 @@ const errorReporting = require('./error-reporting');
 const autoUpdate = require('./auto-update');
 const moveToApplications = require('./move-to-applications');
 const warnDiskFull = require('./update-warning');
+const loadStartPage = require('./connection-recovery');
 
 errorReporting.start();
 
@@ -757,7 +758,13 @@ const createPublicationWindow = async (url = null) => {
     },
   );
 
-  await win.loadURL(PANDASTUDIO_START_URL).catch(() => {});
+  await loadStartPage({
+    win,
+    url: PANDASTUDIO_START_URL,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    // The dashboard has not set the language yet: use the system's.
+    translate: translateFor(app.getLocale()),
+  });
   return win;
 };
 
