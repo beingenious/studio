@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildExceptionList, exceptionKey } = require('../error-event');
+const { buildExceptionList, exceptionKey, cleanMessage } = require('../error-event');
 
 const MAC_APP = '/Applications/PandaSuite Studio.app/Contents/Resources/app.asar';
 const WIN_APP = 'C:\\Users\\jane\\AppData\\Local\\Programs\\pandasuite-studio\\resources\\app.asar';
@@ -69,6 +69,12 @@ check('Windows paths with a different drive letter case', () => {
   assert(framesOf(list).every((frame) => !frame.filename.includes('\\')));
   assert.strictEqual(list[0].value, '~\\AppData\\Local\\Temp\\f');
   assert(!JSON.stringify(list).toLowerCase().includes('jane'));
+});
+
+check('a rejected string shows the home folder with doubled backslashes', () => {
+  // ensure-error passes a rejected value through util.inspect.
+  const value = require('util').inspect('C:\\Users\\Jane\\work.js'); // eslint-disable-line global-require
+  assert.strictEqual(cleanMessage(value, 'C:\\Users\\Jane'), "'~\\\\work.js'");
 });
 
 check('Linux path under the home folder', () => {
