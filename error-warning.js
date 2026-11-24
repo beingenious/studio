@@ -33,6 +33,8 @@ module.exports = function createErrorWarning({
         buttons: [t('errorWarning.ok'), t('errorWarning.copy')],
         defaultId: 0,
         cancelId: 0,
+        // Plain buttons on Windows, not command links.
+        noLink: true,
       });
     })
     .then(({ response }) => {
@@ -49,7 +51,9 @@ module.exports = function createErrorWarning({
     }
     try {
       const details = cleanMessage(String(error.stack || error), home);
-      const key = details.split('\n').slice(1).join('\n') || details;
+      const frames = details.split('\n').filter((line) => /^\s*at /.test(line)).join('\n');
+      // A rejected value is wrapped with the same frames whatever it is: its text tells it apart.
+      const key = error.name === 'NonError' || !frames ? details : frames;
       if (open || told.has(key)) return;
       open = true;
       tell(details, key)

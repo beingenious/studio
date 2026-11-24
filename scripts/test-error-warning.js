@@ -96,6 +96,11 @@ const check = async (name, test) => {
     assert(/showDialog: false,\s*logger: createErrorWarning\(/.test(source), 'with this warning');
     assert(/translate: \(\) => \(dashboardLanguage \? __ : translateFor\(app\.getLocale\(\)\)\)/
       .test(source), 'the dashboard language once set, the system one before');
+    assert(/home: app\.getPath\('home'\)/.test(source), 'the home folder is cleaned');
+    assert(/showMessageBox: \(parent, options\) => dialog\.showMessageBox\(parent, options\)/
+      .test(source), 'on its window');
+    assert(/writeClipboard: \(text\) => clipboard\.writeText\(text\)/.test(source), 'copies');
+    assert(/app\.once\('browser-window-focus', resolve\)/.test(source), 'waits for a window');
     const handler = source.slice(source.indexOf("ipcMain.on('updateLanguage'"));
     const set = handler.indexOf('dashboardLanguage = true');
     assert(set > handler.indexOf('changeLocale(data.language)'), 'set once the language is valid');
@@ -128,6 +133,7 @@ const check = async (name, test) => {
         buttons: [language['errorWarning.ok'], language['errorWarning.copy']],
         defaultId: 0,
         cancelId: 0,
+        noLink: true,
       });
       assert.deepStrictEqual(run.state.clipboard, [], 'OK copies nothing');
     }),
@@ -189,6 +195,32 @@ const check = async (name, test) => {
     assert.strictEqual(run.state.dialogs.length, 2, 'a different error is told');
   });
 
+  await check('a message over several lines is still the same error', async () => {
+    const run = setup();
+    run.ready();
+    run.warn(failure('boom\nfirst detail'));
+    await settle();
+    run.warn(failure('boom\nsecond detail'));
+    await settle();
+    assert.strictEqual(run.state.dialogs.length, 1);
+  });
+
+  await check('two different rejected values are two errors', async () => {
+    const run = setup();
+    run.ready();
+    const rejected = (value) => {
+      const error = new Error(`Non-error value: ${value}`);
+      error.name = 'NonError';
+      error.stack = `NonError: ${value}\n    at ensureError (node_modules/ensure-error/index.js:1:1)`;
+      return error;
+    };
+    run.warn(rejected("'offline'"));
+    await settle();
+    run.warn(rejected("'timeout'"));
+    await settle();
+    assert.strictEqual(run.state.dialogs.length, 2);
+  });
+
   await check('a message that failed is tried again for the same error', async () => {
     const run = setup({ answers: [new Error('no dialog')] });
     run.ready();
@@ -216,7 +248,9 @@ const check = async (name, test) => {
     rejected.stack = `NonError: ${value}\n    at c:\\users\\jane\\app.js:1:1`;
     windows.warn(rejected);
     await settle();
-    assert(!/jane/i.test(windows.state.clipboard[0]), windows.state.clipboard[0]);
+    assert.deepStrictEqual(windows.state.clipboard, [
+      "NonError: '~\\\\work.js'\n    at ~\\app.js:1:1",
+    ]);
   });
 
   await check('nothing escapes from the warning', async () => {
