@@ -137,6 +137,14 @@ const check = async (name, test) => {
     assert.strictEqual(run.dialogs[run.dialogs.length - 1].message, 'crash');
   });
 
+  await check('a crash replaces a load failure the user set aside', async () => {
+    const run = fixture();
+    run.contents.emit('did-fail-load', {}, -106, 'offline', 'https://x', true);
+    await run.answer(1);
+    run.contents.emit('render-process-gone', {}, { reason: 'crashed', exitCode: 1 });
+    assert.strictEqual(run.dialogs[run.dialogs.length - 1].message, 'crash');
+  });
+
   await check('a stuck page sharing its process: no reload offered, nothing ended', async () => {
     const run = fixture({ shared: true });
     run.contents.emit('unresponsive');

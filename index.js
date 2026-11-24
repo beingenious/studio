@@ -418,7 +418,9 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
       homeRecovery.set(projectView, attachHomeRecovery({
         view: projectView,
         window: currentWindow,
-        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow,
+        // Not while Studio is in the background: window focus offers it on return.
+        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow
+          && BrowserWindow.getFocusedWindow() === currentWindow,
         showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
         translate: __,
         texts: projectTexts,
@@ -499,7 +501,11 @@ const createOrSelectBrowserView = ({ url, home }, win) => {
   currentWindow.setTopBrowserView(view);
   updateHomeMenu();
   const controller = homeRecovery.get(view);
-  if (controller) controller.tabSelected();
+  // Home keeps its behavior: a message set aside stays so until the menu or a new failure.
+  if (controller) {
+    if (homeSenders.has(view.webContents)) controller.selected();
+    else controller.tabSelected();
+  }
 
   view.webContents.focus();
   if (process.platform !== 'win32') {

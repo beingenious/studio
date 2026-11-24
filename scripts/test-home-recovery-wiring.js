@@ -72,6 +72,8 @@ const shellContents = {
   isDestroyed: () => false,
 };
 const dialogs = [];
+const answers = [];
+let studioInFront = true;
 window.webContents = shellContents;
 const nativeTheme = { themeSource: 'system' };
 const electron = {
@@ -79,7 +81,7 @@ const electron = {
   ipcMain,
   BrowserView,
   BrowserWindow: {
-    getFocusedWindow: () => window,
+    getFocusedWindow: () => (studioInFront ? window : null),
     fromWebContents: (contents) => (contents === shellContents ? window : null),
   },
   nativeTheme,
@@ -89,7 +91,7 @@ const electron = {
   dialog: {
     showMessageBox: (parent, options) => {
       dialogs.push(options);
-      return new Promise(() => {});
+      return new Promise((resolve) => answers.push(resolve));
     },
   },
   Menu: {
@@ -126,7 +128,7 @@ const context = {
 };
 vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8')}
 this.test = { createOrSelectBrowserView, createMenu, publicationsBrowserView, updateMenuItem,
-  homeRecovery, sharesProcess, updateHomeMenu,
+  homeRecovery, sharesProcess, updateHomeMenu, projectTexts,
   setFocusedWindow: (win) => { focusedWindow = win; } };`, context);
 const api = context.test;
 assert.strictEqual(started, 1, 'error reporting starts once');
@@ -241,6 +243,90 @@ setImmediate(() => {
     const other = views.find((view) => view !== projectView && !view.webContents.isDestroyed());
     other.webContents.pid = projectView.webContents.pid;
     assert.strictEqual(api.sharesProcess(projectView.webContents), true, 'shared with another tab');
-    process.stdout.write('Home recovery production wiring assertions passed\n');
+    other.webContents.pid = 999;
+
+    // The wording Studio ships, per failure.
+    const text = (kind, canReload) => JSON.parse(
+      JSON.stringify(api.projectTexts(kind, { canReload })),
+    );
+    assert.deepStrictEqual(text('crash', true), {
+      message: 'projectRecovery.crashMessage',
+      detail: 'projectRecovery.crashDetail',
+      buttons: ['Reload', 'Cancel'],
+      defaultId: 0,
+      reload: true,
+    });
+    assert.strictEqual(text('load', true).detail, 'projectRecovery.loadDetail');
+    assert.deepStrictEqual(text('hang', true), {
+      message: 'projectRecovery.hangMessage',
+      detail: 'projectRecovery.hangDetail',
+      buttons: ['Reload', 'projectRecovery.wait'],
+      defaultId: 1,
+      reload: true,
+    });
+    assert.deepStrictEqual(text('hang', false), {
+      message: 'projectRecovery.hangMessage',
+      detail: 'projectRecovery.hangRestartDetail',
+      buttons: ['projectRecovery.ok'],
+      defaultId: 0,
+      reload: false,
+    });
+
+    const flush = () => new Promise(setImmediate);
+    const answer = async (response) => {
+      answers.shift()({ response });
+      await flush();
+    };
+    const stuck = projectView.webContents;
+    (async () => {
+      // A stuck project with a process of its own: Reload ends it, then reloads.
+      await answer(1);
+      stuck.emit('did-start-loading');
+      stuck.emit('unresponsive');
+      assert.strictEqual(dialogs[dialogs.length - 1].detail, 'projectRecovery.hangDetail');
+      await answer(0);
+      assert.strictEqual(stuck.crashes, 1, 'renderer ended');
+      assert.strictEqual(stuck.reloads, 1, 'then reloaded');
+      stuck.emit('did-finish-load');
+
+      // Shared with the shell: no Reload, nothing ended.
+      shellContents.pid = stuck.pid;
+      stuck.emit('unresponsive');
+      assert.strictEqual(JSON.stringify(dialogs[dialogs.length - 1].buttons), '["projectRecovery.ok"]');
+      await answer(0);
+      assert.strictEqual(stuck.crashes, 1);
+      shellContents.pid = 1;
+      stuck.emit('responsive');
+
+      // Waiting: offered again when the tab is chosen again.
+      stuck.emit('unresponsive');
+      const before = dialogs.length;
+      await answer(1);
+      api.createOrSelectBrowserView({ url: projectUrl }, window);
+      assert.strictEqual(dialogs.length, before + 1, 'chosen again, offered again');
+      await answer(1);
+      stuck.emit('responsive');
+
+      // Studio in the background: nothing until it is in front again.
+      studioInFront = false;
+      stuck.emit('render-process-gone', {}, { reason: 'crashed', exitCode: 1 });
+      assert.strictEqual(dialogs.length, before + 1, 'no message in the background');
+      studioInFront = true;
+      api.createOrSelectBrowserView({ url: projectUrl }, window);
+      assert.strictEqual(dialogs[dialogs.length - 1].message, 'projectRecovery.crashMessage');
+
+      assert(logged.some(({ event, data }) => event === 'react-error' && data.role === 'home'),
+        'Home records say Home');
+      const source = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
+      const focus = source.slice(source.indexOf("win.on('focus'"), source.indexOf("win.on('ready-to-show'"));
+      assert(/selectedController\(\)/.test(focus), 'window focus offers any tab\'s failure');
+      const selection = /homeSenders\.has\(view\.webContents\)\) controller\.selected\(\);/;
+      assert(selection.test(source), 'Home keeps its behavior on selection');
+      assert(/else controller\.tabSelected\(\);/.test(source), 'a project is offered again');
+      process.stdout.write('Home recovery production wiring assertions passed\n');
+    })().catch((error) => {
+      console.error(error); // eslint-disable-line no-console
+      process.exitCode = 1;
+    });
   });
 });

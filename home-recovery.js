@@ -97,7 +97,8 @@ module.exports = function attachHomeRecovery({
       failure = kind;
       dismissed = false;
       generation += 1;
-    } else if (failure === 'hang' && kind !== 'hang') {
+    } else if ((failure === 'hang' && kind !== 'hang') || (failure === 'load' && kind === 'crash')) {
+      // A worse failure replaces the one on screen, or one the user set aside.
       failure = kind;
       dismissed = false;
       generation += 1;
