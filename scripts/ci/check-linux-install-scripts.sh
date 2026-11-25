@@ -11,7 +11,14 @@ for package in "$dist"/*.deb "$dist"/*.rpm "$dist"/*.pacman; do
   case "$package" in
     *.deb) script="$(ar p "$package" control.tar.gz | tar -xzOf - ./postinst)" ;;
     *.rpm) script="$(rpm -qp --scripts "$package")" ;;
-    *.pacman) script="$(tar -xOf "$package" .INSTALL)" ;;
+    *.pacman)
+      script="$(tar -xOf "$package" .INSTALL)"
+      # pacman only runs post_upgrade when it replaces an installed version.
+      if ! sed -n '/^post_upgrade()/,/^}/p' <<<"$script" | grep -q "^chmod 4755 '/opt/PandaSuite-Studio/chrome-sandbox'"; then
+        echo "Upgrade script does not make chrome-sandbox SUID: $package"
+        exit 1
+      fi
+      ;;
   esac
   if ! grep -q 'PandaSuite Studio: chrome-sandbox is always SUID' <<<"$script" \
     || ! grep -q "^chmod 4755 '/opt/PandaSuite-Studio/chrome-sandbox'" <<<"$script" \
