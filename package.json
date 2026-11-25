@@ -105,6 +105,9 @@
       ],
       "icon": "build/icon.png"
     },
+    "deb": {
+      "afterInstall": "build/linux-after-install.tpl"
+    },
     "win": {
       "verifyUpdateCodeSignature": false,
       "extraResources": [
