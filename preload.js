@@ -3,8 +3,23 @@ const { ipcRenderer } = require('electron');
 process.once('loaded', () => {
   window.forceIsElectron = true;
 
+  Object.defineProperty(window, 'studioNativeWindowFrame', {
+    value: process.platform === 'win32',
+  });
+  Object.defineProperty(window, 'studioCompactTitlebar', {
+    value: process.platform === 'darwin',
+  });
   window.addEventListener('message', (event) => {
     const message = event.data;
+    if (!message || typeof message !== 'object') return;
+    if (message.type === 'updateNativeTheme') {
+      if (event.source === window) ipcRenderer.send(message.type, message.data);
+      return;
+    }
+    if (message.type === 'homeRenderError') {
+      if (event.source === window) ipcRenderer.send(message.type, message.data);
+      return;
+    }
 
     if (
       [

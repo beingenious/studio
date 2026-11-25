@@ -8,18 +8,21 @@ const {
   session,
   BrowserView,
   screen,
+  powerMonitor,
+  nativeTheme,
+  clipboard,
+  webContents,
 } = require('electron');
+const fs = require('fs');
 const path = require('path');
-// const { autoUpdater } = require('electron-updater');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { is } = require('electron-util');
 const unhandled = require('electron-unhandled');
 const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
-const { download } = require('electron-dl');
 const serve = require('electron-serve');
 const windowStateKeeper = require('electron-window-state');
-
-const Bugsnag = require('@bugsnag/js');
 
 const values = require('lodash/values');
 const omitBy = require('lodash/omitBy');
@@ -28,15 +31,37 @@ const find = require('lodash/find');
 const map = require('lodash/map');
 
 const menu = require('./menu');
+const attachHomeRecovery = require('./home-recovery');
+const attachWindowLayout = require('./window-layout');
+const attachMacTitlebar = require('./macos-titlebar');
+const createHomeRecoveryLog = require('./home-recovery-log');
 const { setupFlashPlayer } = require('./flash-player');
-const { __, changeLocale } = require('./i18n/i18n');
+const { __, changeLocale, translateFor } = require('./i18n/i18n');
+const config = require('./config');
+const errorReporting = require('./error-reporting');
+const moveToApplications = require('./move-to-applications');
+const loadStartPage = require('./connection-recovery');
+const downloadFile = require('./download-file');
+const createErrorWarning = require('./error-warning');
 
-Bugsnag.start({ apiKey: 'fb0c50f4d245a45f54e68ac8161273a7' });
+// Gendarmerie build: errors are not reported.
+errorReporting.start({ enabled: false });
 
-unhandled({
-  reportButton: (error) => {
-    Bugsnag.notify(error);
-  },
+// Until the dashboard sets the language, the system's applies.
+let dashboardLanguage = false;
+// An unexpected error leaves Studio running: say so in plain words, details on request.
+unhandled(is.development ? {} : {
+  showDialog: false,
+  logger: createErrorWarning({
+    whenReady: () => app.whenReady(),
+    nextFocusedWindow: () => new Promise((resolve) => app.once('browser-window-focus', resolve)),
+    BrowserWindow,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    translate: () => (dashboardLanguage ? __ : translateFor(app.getLocale())),
+    writeClipboard: (text) => clipboard.writeText(text),
+    home: app.getPath('home'),
+    log: console.error, // eslint-disable-line no-console
+  }),
 });
 debug();
 contextMenu();
@@ -63,6 +88,7 @@ const PANDASUITE_AUTHORING_PATH = is.development
 
 const PANDASTUDIO_SCHEME = 'pandastudio';
 const PANDASTUDIO_START_URL = `https://${PANDASUITE_HOST}/dashboard/electron/tabs/`;
+const PANDASTUDIO_HOME_URL = `https://${PANDASUITE_HOST}/dashboard/`;
 const PDFJS_SCHEME = 'pdf';
 
 const ELECTRON_MENU_HEIGHT = 45;
@@ -70,23 +96,67 @@ const ELECTRON_MENU_HEIGHT = 45;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.pandasuite.studio');
 
-// if (!is.development) {
-//   const FOUR_HOURS = 1000 * 60 * 60 * 4;
-//   setInterval(() => {
-//     autoUpdater.checkForUpdates().catch(() => {});
-//   }, FOUR_HOURS);
-
-//   autoUpdater.checkForUpdates().catch(() => {});
-// }
+// Gendarmerie build: no automatic update, the package comes from the GendBuntu repository.
 
 const publicationsBrowserView = {};
 const garbageBrowserView = {};
 const publicationsMenuItems = {};
 let focusBrowserView = null;
+let focusedWindow = null;
+const homeRecovery = new WeakMap();
+const homeSenders = new WeakMap();
+const viewWindows = new WeakMap();
+let homeLog;
+const logHome = (event, data) => {
+  if (!homeLog) {
+    homeLog = createHomeRecoveryLog({
+      file: path.join(app.getPath('userData'), 'logs', 'home-recovery.log'),
+      versions: {
+        app: app.getVersion(),
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+      },
+    });
+  }
+  homeLog(event, data);
+};
+// The recovery of the selected tab of the focused window, Home or a project.
+const selectedController = () => {
+  if (!focusBrowserView || focusBrowserView.webContents.isDestroyed()) return null;
+  const win = viewWindows.get(focusBrowserView);
+  if (!win || win.isDestroyed() || win !== focusedWindow) return null;
+  return homeRecovery.get(focusBrowserView);
+};
+// Home is the one view whose page reports its errors.
+const selectedHome = () => (
+  focusBrowserView && homeSenders.has(focusBrowserView.webContents) ? selectedController() : null
+);
+// Ending a stuck renderer would also end whatever else lives in its process.
+const sharesProcess = (contents) => {
+  const id = contents.getOSProcessId();
+  return webContents.getAllWebContents().some((other) => other !== contents
+    && !other.isDestroyed() && other.getOSProcessId() === id);
+};
+const updateHomeMenu = () => {
+  const applicationMenu = Menu.getApplicationMenu();
+  const item = applicationMenu && applicationMenu.getMenuItemById('reloadHome');
+  if (item) item.enabled = !!selectedHome();
+};
+ipcMain.on('homeRenderError', (event, data) => {
+  const controller = homeSenders.get(event.sender);
+  if (controller) controller.reportReactError(event.sender, data);
+});
 
 let publicationsWindow = {};
-let focusedWindow = null;
 let deeplinkingUrl;
+
+ipcMain.on('updateNativeTheme', (event, data) => {
+  if (!data || !['auto', 'light', 'dark'].includes(data.theme)) return;
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.webContents !== event.sender ||
+      event.sender.getURL() !== PANDASTUDIO_START_URL) return;
+  nativeTheme.themeSource = data.theme === 'auto' ? 'system' : data.theme;
+});
 
 function schemeToUrl(url) {
   return (
@@ -199,6 +269,7 @@ const setDocumentEdited = (url, enabled) => {
 };
 
 const updateMenuItem = (url, data) => {
+  if (data && data.id === 'reloadHome') return;
   if (data && data.id) {
     const applicationMenu = Menu.getApplicationMenu();
 
@@ -266,6 +337,14 @@ const removeBrowserView = (url) => {
   const view = publicationsBrowserView[url];
 
   if (view) {
+    const controller = homeRecovery.get(view);
+    if (controller) {
+      controller.dispose();
+      homeRecovery.delete(view);
+      homeSenders.delete(view.webContents);
+    }
+    if (focusBrowserView === view) focusBrowserView = null;
+    updateHomeMenu();
     currentWindow.removeBrowserView(view);
     garbageBrowserView[url] = view;
     delete publicationsBrowserView[url];
@@ -290,7 +369,49 @@ const updateExistingMenuItems = (url) => {
   }
 };
 
-const createOrSelectBrowserView = ({ url }, win) => {
+const startDownload = (win, url) => downloadFile({
+  win,
+  url,
+  directory: app.getPath('downloads'),
+  showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+  showItemInFolder: (file) => shell.showItemInFolder(file),
+  // The Dock bounces its Downloads stack on macOS.
+  downloadFinished: (file) => app.dock && app.dock.downloadFinished(file),
+  translate: __,
+  fs,
+});
+
+// What a project tab says when it fails: a crash already lost what was not saved, a failed load
+// has nothing to lose, a stuck page may lose it on reload, so waiting is the default.
+const projectTexts = (kind, { canReload }) => {
+  if (kind === 'hang' && !canReload) {
+    return {
+      message: __('projectRecovery.hangMessage'),
+      detail: __('projectRecovery.hangRestartDetail'),
+      buttons: [__('projectRecovery.ok')],
+      defaultId: 0,
+      reload: false,
+    };
+  }
+  if (kind === 'hang') {
+    return {
+      message: __('projectRecovery.hangMessage'),
+      detail: __('projectRecovery.hangDetail'),
+      buttons: [__('Reload'), __('projectRecovery.wait')],
+      defaultId: 1,
+      reload: true,
+    };
+  }
+  return {
+    message: __(`projectRecovery.${kind}Message`),
+    detail: __(`projectRecovery.${kind}Detail`),
+    buttons: [__('Reload'), __('Cancel')],
+    defaultId: 0,
+    reload: true,
+  };
+};
+
+const createOrSelectBrowserView = ({ url, home }, win) => {
   const currentWindow =
     focusedWindow || BrowserWindow.getFocusedWindow() || win;
   const contentBounds = currentWindow.getContentBounds();
@@ -313,7 +434,44 @@ const createOrSelectBrowserView = ({ url }, win) => {
     publicationsBrowserView[url] = view;
     currentWindow.addBrowserView(view);
 
-    view.webContents.loadURL(url);
+    viewWindows.set(view, currentWindow);
+    if (home === true && url === PANDASTUDIO_HOME_URL) {
+      const homeView = view;
+      const controller = attachHomeRecovery({
+        view: homeView,
+        window: currentWindow,
+        isSelected: () => focusBrowserView === homeView && focusedWindow === currentWindow,
+        showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+        translate: __,
+        sharesProcess: () => sharesProcess(homeView.webContents),
+        log: (event, data) => logHome(event, { ...data, role: 'home' }),
+      });
+      homeRecovery.set(homeView, controller);
+      homeSenders.set(homeView.webContents, controller);
+      homeView.webContents.once('destroyed', () => {
+        controller.dispose();
+        homeRecovery.delete(homeView);
+        homeSenders.delete(homeView.webContents);
+        updateHomeMenu();
+      });
+    } else {
+      const projectView = view;
+      homeRecovery.set(projectView, attachHomeRecovery({
+        view: projectView,
+        window: currentWindow,
+        isSelected: () => focusBrowserView === projectView && focusedWindow === currentWindow,
+        // Not while Studio is in the background: window focus offers it on return.
+        canOffer: () => BrowserWindow.getFocusedWindow() === currentWindow,
+        showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+        translate: __,
+        texts: projectTexts,
+        sharesProcess: () => sharesProcess(projectView.webContents),
+        log: (event, data) => logHome(event, { ...data, role: 'project' }),
+      }));
+    }
+    const loadPromise = view.webContents.loadURL(url);
+    const controller = homeRecovery.get(view);
+    if (controller) loadPromise.catch((error) => controller.loadRejected(error));
     if (is.development) {
       view.webContents.openDevTools({ mode: 'undocked' });
     }
@@ -342,12 +500,7 @@ const createOrSelectBrowserView = ({ url }, win) => {
       }
       if (newUrl.indexOf('get_aws_url_for') !== -1) {
         e.preventDefault();
-        download(currentWindow, newUrl)
-          .then((downloadItem) => {
-            const filename = downloadItem.getSavePath();
-            shell.showItemInFolder(filename);
-          })
-          .catch(() => {});
+        startDownload(currentWindow, newUrl);
         return;
       }
 
@@ -382,12 +535,26 @@ const createOrSelectBrowserView = ({ url }, win) => {
 
   focusBrowserView = view;
   currentWindow.setTopBrowserView(view);
+  updateHomeMenu();
+  const controller = homeRecovery.get(view);
+  // Home keeps its behavior: a message set aside stays so until the menu or a new failure.
+  if (controller) {
+    if (homeSenders.has(view.webContents)) controller.selected();
+    else controller.tabSelected();
+  }
 
   view.webContents.focus();
-  view.webContents.executeJavaScript(
-    'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
-    true,
-  );
+  if (process.platform !== 'win32') {
+    const selectionScript = view.webContents.executeJavaScript(
+      'var e=document.getElementById("studio-drag-fix");e&&e.parentNode.removeChild(e),setTimeout(()=>{var e=document.createElement("div");e.id="studio-drag-fix",e.style.position="fixed",e.style.webkitAppRegion="no-drag",e.style.pointerEvents="none",document.body.appendChild(e)},500);',
+      true,
+    );
+
+    if (controller) {
+      const role = homeSenders.has(view.webContents) ? 'home' : 'project';
+      selectionScript.catch(() => logHome('selection-script-failed', { role }));
+    }
+  }
 
   each(garbageBrowserView, (v, k) => {
     v.webContents.destroy();
@@ -434,8 +601,9 @@ const createPublicationWindow = async (url = null) => {
     height: mainWindowState.height,
     minWidth: 800,
     minHeight: 600,
-    frame: false,
-    titleBarStyle: 'hiddenInset',
+    frame: process.platform === 'win32',
+    titleBarStyle: { darwin: 'hidden', win32: 'default', linux: 'hiddenInset' }[process.platform],
+    ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 12, y: 31 } } : {}),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, './preload.js'),
@@ -447,6 +615,9 @@ const createPublicationWindow = async (url = null) => {
       contextIsolation: false,
     },
   });
+
+  if (process.platform === 'win32') attachWindowLayout(win, ELECTRON_MENU_HEIGHT);
+  if (process.platform === 'darwin') attachMacTitlebar(win);
 
   if (is.development) {
     win.openDevTools({ mode: 'undocked' });
@@ -540,7 +711,10 @@ const createPublicationWindow = async (url = null) => {
 
   ipcMain.on('updateLanguage', (event, data) => {
     if (data && data.language) {
-      if (changeLocale(data.language)) {
+      const changed = changeLocale(data.language);
+      // From now on the dashboard's language applies, changed or not.
+      dashboardLanguage = true;
+      if (changed) {
         // eslint-disable-next-line no-use-before-define
         createMenu();
         executeJavaScript(
@@ -567,6 +741,9 @@ const createPublicationWindow = async (url = null) => {
 
   win.on('focus', () => {
     focusedWindow = win;
+    updateHomeMenu();
+    const controller = selectedController();
+    if (controller) controller.selected();
     if (focusBrowserView) {
       focusBrowserView.webContents.focus();
     }
@@ -577,6 +754,18 @@ const createPublicationWindow = async (url = null) => {
   });
 
   win.on('closed', () => {
+    each(publicationsBrowserView, (view, key) => {
+      if (viewWindows.get(view) === win) {
+        const controller = homeRecovery.get(view);
+        if (controller) controller.dispose();
+        homeRecovery.delete(view);
+        homeSenders.delete(view.webContents);
+        if (focusBrowserView === view) focusBrowserView = null;
+        delete publicationsBrowserView[key];
+      }
+    });
+    if (focusedWindow === win) focusedWindow = null;
+    updateHomeMenu();
     removePublicationWindow(win);
   });
 
@@ -615,12 +804,7 @@ const createPublicationWindow = async (url = null) => {
     }
     if (newUrl.indexOf('get_aws_url_for') !== -1) {
       e.preventDefault();
-      download(win, newUrl)
-        .then((downloadItem) => {
-          const filename = downloadItem.getSavePath();
-          shell.showItemInFolder(filename);
-        })
-        .catch(() => {});
+      startDownload(win, newUrl);
       return;
     }
 
@@ -667,12 +851,19 @@ const createPublicationWindow = async (url = null) => {
     },
   );
 
-  await win.loadURL(PANDASTUDIO_START_URL).catch(() => {});
+  await loadStartPage({
+    win,
+    url: PANDASTUDIO_START_URL,
+    showMessageBox: (parent, options) => dialog.showMessageBox(parent, options),
+    // The dashboard has not set the language yet: use the system's.
+    translate: translateFor(app.getLocale()),
+  });
   return win;
 };
 
 // Prevent multiple instances of the app
-if (!app.requestSingleInstanceLock()) {
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
   app.quit();
 }
 
@@ -742,12 +933,32 @@ const createMenu = () => {
         return false;
       },
       studioOnMenuItemUpdate,
+      reloadHomeEnabled: !!selectedHome(),
+      reloadHome: () => {
+        const controller = selectedHome();
+        if (controller) controller.reload();
+      },
     }),
   );
 };
 
 (async () => {
+  // quit() before ready does not stop this startup: a second instance must not build windows.
+  if (!gotLock) return;
   await app.whenReady();
+  // A deep link would be lost by the relaunch: ask at the next normal launch instead.
+  if (!deeplinkingUrl && await moveToApplications({
+    app,
+    dialog,
+    store: config,
+    translate: translateFor(app.getLocale()),
+    fs,
+    execFile: promisify(execFile),
+    report: errorReporting.captureException,
+  })) return;
+  logHome('startup');
+  powerMonitor.on('suspend', () => logHome('suspend'));
+  powerMonitor.on('resume', () => logHome('resume'));
 
   // https://github.com/electron/electron/issues/9995
   const { cookies } = session.defaultSession;

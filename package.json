@@ -1,7 +1,7 @@
 {
   "name": "pandasuite-studio",
   "productName": "PandaSuite Studio",
-  "version": "1.7.6-gdm",
+  "version": "1.7.12-gdm",
   "description": "The best studio ever",
   "license": "MIT",
   "repository": "beingenious/studio",
@@ -11,7 +11,7 @@
     "url": "https://pandasuite.com"
   },
   "scripts": {
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "node scripts/build-macos-titlebar.js && electron-builder install-app-deps",
     "lint": "eslint . --ext .js",
     "test": "npm run lint",
     "start": "electron .",
@@ -23,17 +23,16 @@
     "release": "np"
   },
   "dependencies": {
-    "@bugsnag/js": "^7.6.0",
     "dotenv": "^8.1.0",
     "electron-context-menu": "^0.15.0",
     "electron-debug": "^3.0.0",
-    "electron-dl": "^1.14.0",
     "electron-serve": "^0.4.0",
     "electron-store": "^4.0.0",
     "electron-unhandled": "^3.0.0",
     "electron-updater": "4.3.9",
     "electron-util": "^0.12.0",
     "electron-window-state": "^5.0.3",
+    "ext-name": "^5.0.0",
     "lodash": "^4.17.15"
   },
   "devDependencies": {
@@ -41,13 +40,14 @@
     "@types/lodash": "^4.14.138",
     "babel-eslint": "^10.0.3",
     "electron": "^11.5.0",
-    "electron-builder": "^25.0.0-alpha.6",
+    "electron-builder": "25.1.8",
     "eslint": "^5.9.0",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-plugin-import": "^2.18.2",
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-react": "^7.14.3",
     "eslint-plugin-react-hooks": "^1.7.0",
+    "node-api-headers": "1.9.0",
     "np": "^5.1.0"
   },
   "np": {
@@ -69,6 +69,13 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "category": "public.app-category.productivity",
       "darkModeSupport": true,
+      "files": [
+        "**/*",
+        "!native/*.{m,h}",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
+      ],
       "extraResources": [
         "./static/flash_player_ppapi/PepperFlashPlayer.plugin/**/*",
         "./static/pdfjs/**/*",
@@ -103,7 +110,27 @@
         "./static/flash_player_ppapi/*.so",
         "./static/pdfjs/**/*"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "files": [
+        "**/*",
+        "!native/**",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
+      ]
+    },
+    "deb": {
+      "afterInstall": "build/linux-after-install.tpl"
+    },
+    "rpm": {
+      "afterInstall": "build/linux-after-install.tpl"
+    },
+    "pacman": {
+      "afterInstall": "build/linux-after-install.tpl",
+      "fpm": [
+        "--after-upgrade",
+        "build/linux-pacman-after-upgrade.sh"
+      ]
     },
     "win": {
       "verifyUpdateCodeSignature": false,
@@ -111,7 +138,20 @@
         "./static/flash_player_ppapi/*.dll",
         "./static/pdfjs/**/*"
       ],
-      "sign": "scripts/sign/sign.js"
-    }
-  }
+      "sign": "scripts/sign/sign.js",
+      "files": [
+        "**/*",
+        "!native/**",
+        "!.*{,/**/*}",
+        "!docs{,/**/*}",
+        "!scripts{,/**/*}"
+      ]
+    },
+    "beforePack": "./scripts/build-macos-titlebar.js",
+    "afterPack": "./scripts/check-package-files.js",
+    "asarUnpack": [
+      "native/*.node"
+    ]
+  },
+  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
 }
