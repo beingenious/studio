@@ -101,3 +101,4 @@ jobs:
           for deb in dist/*.deb; do
             ar t "$deb" | grep -qx 'data.tar.xz' || { echo "Incomplete package: $deb"; exit 1; }
           done
+          scripts/ci/check-linux-install-scripts.sh dist
