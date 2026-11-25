@@ -1,0 +1,55 @@
+name: Windows native frame
+on:
+  pull_request:
+    paths:
+      - 'index.js'
+      - 'preload.js'
+      - 'window-layout.js'
+      - 'macos-titlebar.js'
+      - 'error-event.js'
+      - 'error-reporting.js'
+      - 'auto-update.js'
+      - 'update-warning.js'
+      - 'connection-recovery.js'
+      - 'download-file.js'
+      - 'error-warning.js'
+      - 'move-to-applications.js'
+      - 'home-recovery.js'
+      - 'home-recovery-log.js'
+      - 'i18n/**'
+      - 'native/**'
+      - 'package.json'
+      - 'scripts/**'
+      - '.github/workflows/window-frame.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-window:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm install
+      - run: npm test
+      - run: node scripts/test-package-files.js
+      - run: node scripts/test-package-contents.js
+      - run: node scripts/test-window-frame.js
+      - run: node scripts/test-window-layout.js
+      - run: node scripts/test-macos-titlebar.js
+      - run: node scripts/test-home-recovery.js
+      - run: node scripts/test-home-recovery-wiring.js
+      - run: node scripts/test-tab-recovery.js
+      - run: node scripts/test-error-event.js
+      - run: node scripts/test-auto-update.js
+      - run: node scripts/test-update-warning.js
+      - run: node scripts/test-connection-recovery.js
+      - run: node scripts/test-download-file.js
+      - run: node scripts/test-error-warning.js
+      - run: node scripts/test-move-to-applications.js
+      - run: node scripts/test-startup-wiring.js
+      - run: npx --no-install electron scripts/test-window-frame-electron.js
+      - run: npx --no-install electron scripts/test-error-reporting-electron.js
