@@ -114,6 +114,21 @@ const start = async (updater, report, warnDiskFull) => {
     assert.strictEqual(report.calls.length, 3);
   });
 
+  await run('read-only volume: not reported', async () => {
+    const readOnly = withCode(8, 'SQRLUpdaterErrorDomain');
+    const nativeUpdater = new EventEmitter();
+    const report = spy();
+    await start(fakeUpdater({
+      nativeUpdater,
+      check: () => Promise.resolve({ downloadPromise: Promise.reject(readOnly) }),
+    }), report);
+    nativeUpdater.emit('error', readOnly, readOnly.message);
+    assert.deepStrictEqual(report.calls, []);
+    const others = [withCode(8, 'NSPOSIXErrorDomain'), withCode(7, 'SQRLUpdaterErrorDomain')];
+    others.forEach((error) => nativeUpdater.emit('error', error));
+    assert.deepStrictEqual(report.calls, others.map((error) => [error]));
+  });
+
   await run('full disk: warned once per launch', async () => {
     await Promise.all([
       withCode(28, 'NSPOSIXErrorDomain'),
