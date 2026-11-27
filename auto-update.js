@@ -13,6 +13,10 @@ const isDiskFull = (error) => !!error && (
     && String(error.message).includes('No space left on device'))
 );
 
+// Expected while Studio runs from the disk image or Downloads: not a fault.
+const isReadOnlyVolume = (error) => !!error
+  && error.domain === 'SQRLUpdaterErrorDomain' && error.code === 8;
+
 // Checks for updates at startup and every four hours where the installation can update
 // itself. Download failures are reported as handled errors; check failures (offline,
 // proxy, DNS) stay silent and are retried at the next check. A full disk is the one
@@ -29,6 +33,7 @@ module.exports = function autoUpdate(autoUpdater, report, warnDiskFull) {
 
   if (autoUpdater.nativeUpdater) {
     autoUpdater.nativeUpdater.on('error', (error) => {
+      if (isReadOnlyVolume(error)) return;
       if (error && typeof error.message === 'string') {
         // eslint-disable-next-line no-param-reassign
         error.message = error.message.replace(SQUIRREL_FOLDER, '/update.*/');
@@ -39,7 +44,9 @@ module.exports = function autoUpdate(autoUpdater, report, warnDiskFull) {
 
   const check = () => autoUpdater.checkForUpdates().then(
     (result) => result && result.downloadPromise
-      && result.downloadPromise.catch((error) => report(error)),
+      && result.downloadPromise.catch((error) => {
+        if (!isReadOnlyVolume(error)) report(error);
+      }),
     () => {},
   );
   check();
